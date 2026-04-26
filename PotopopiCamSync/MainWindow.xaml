@@ -1,0 +1,78 @@
+<Window x:Class="PotopopiCamSync.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Potopopi CamSync" Height="450" Width="600"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Potopopi CamSync Dashboard" FontSize="24" FontWeight="Bold" Margin="0,0,0,10"/>
+        
+        <GroupBox Header="Sync Status" Grid.Row="1" Margin="0,0,0,10">
+            <Grid Margin="5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="{Binding StatusText}" FontWeight="Bold" Margin="0,0,0,10"/>
+                
+                <TextBlock Text="Active Devices:" FontWeight="Bold" Grid.Row="1" Margin="0,0,0,5"/>
+                <ItemsControl Grid.Row="2" ItemsSource="{Binding ActiveDevices}" Margin="0,0,0,10">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center" Foreground="DarkGreen" FontWeight="SemiBold"/>
+                                <Button Grid.Column="1" Content="Sync Now" Width="80" 
+                                        Command="{Binding DataContext.ManualSyncCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                        CommandParameter="{Binding}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="Unregistered Devices:" FontWeight="Bold" Grid.Row="3" Margin="0,0,0,5"/>
+                <ItemsControl Grid.Row="4" ItemsSource="{Binding UnregisteredDevices}" Margin="0,0,0,10">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Content="Register" Width="70" 
+                                        Command="{Binding DataContext.RegisterDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                        CommandParameter="{Binding}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ListBox Grid.Row="5" ItemsSource="{Binding Logs}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </GroupBox>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Settings" Width="100" Margin="0,0,10,0" Click="Settings_Click"/>
+            <Button Content="Hide to Tray" Width="100" Click="Hide_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
