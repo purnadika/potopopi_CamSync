@@ -1,42 +1,71 @@
-# Potopopi CamSync
+# Potopopi CamSync 📸🚀
 
-Potopopi CamSync is a C# .NET 10 WPF application designed to automatically detect your photography devices (like a Canon EOS 6D or an SD Card) via USB and seamlessly sync your media files. It backups your photos locally and optionally uploads them directly to an Immich server, preserving all original EXIF, GPS, and metadata.
+Potopopi CamSync is a high-performance, memory-efficient C# .NET 10 WPF application designed for photographers who need to automate their workflow. It monitors device connections (MTP Cameras or SD Cards) and seamlessly syncs media to a local backup and/or an [Immich](https://immich.app/) server.
 
-## Features
+Built with a **Two-Stage Sync Pipeline**, it is specifically engineered to handle large RAW files and 4K videos without crashing or consuming excessive system memory.
 
-- **Automatic Device Detection**: Sits quietly in your system tray and instantly recognizes when your registered camera or SD card is inserted using WMI events.
-- **MTP & SD Card Support**: Connects to digital cameras directly over MTP (using `MediaDevices`) or standard removable drives.
-- **Local Backup & Immich Integration**: Copies photos locally to date-based folders and asynchronously uploads them to an Immich server via its REST API (`POST /api/assets`).
-- **State Tracking**: Never uploads the same photo twice! A local state tracker keeps a signature of successfully uploaded files.
-- **Setup Wizard & Configuration**: Intuitive UI to handle your settings, API keys, and file cleanup options (such as deleting files after a successful sync or keeping them for X days).
-- **Extensible Architecture**: Built heavily around abstract `IDeviceProvider` and `ISyncDestination` interfaces, making it trivial to add new backup destinations like Google Photos, OneDrive, etc.
+## ✨ Key Features
 
-## Technology Stack
+- **🚀 Two-Stage Sync Pipeline**: Files are first downloaded to a local staging area and then streamed directly to Immich. This ensures zero-RAM buffering and maximum reliability.
+- **🔌 Plug-and-Play Detection**: Uses WMI events to instantly recognize registered cameras (via MTP) or SD cards the moment they are connected.
+- **☁️ Immich Integration**: Native support for Immich's asset API, preserving original EXIF, GPS, and metadata.
+- **🛡️ Robust MTP Engine**: Iterative folder traversal ensures the app never crashes even on cameras with thousands of deeply nested folders.
+- **🛑 Full Cancellation Support**: Long-running syncs can be stopped at any moment with the click of a button.
+- **🔄 Local → Immich Sync**: A dedicated manual feature to push your local backup library to Immich at any time.
+- **📁 Smart Organization**: Automatically organizes your local backups into clean `yyyy-MM-dd` date-based folder structures.
+- **💉 Dependency Injection**: Modern architecture using `Microsoft.Extensions.Hosting` for better maintainability and testability.
+- **📜 Structured Logging**: Comprehensive logging to `app.log` for easy troubleshooting.
 
-- **.NET 10**: The latest LTS framework for speed and stability.
-- **WPF (Windows Presentation Foundation)**: For robust desktop UI.
-- **CommunityToolkit.Mvvm**: For modern and efficient MVVM patterns.
-- **MediaDevices**: A wrapper over the Windows Portable Devices API for flawless MTP communication.
+## 🛠️ Technology Stack
 
-## Getting Started
+- **Framework**: .NET 10 (WPF)
+- **Architecture**: MVVM with `CommunityToolkit.Mvvm`
+- **DI Container**: `Microsoft.Extensions.Hosting`
+- **Logging**: `Microsoft.Extensions.Logging` with custom File Provider
+- **MTP Communication**: `MediaDevices` (Windows Portable Devices API)
+- **Testing**: xUnit with `Moq` for unit testing the sync logic
 
+## 🚀 Getting Started
+
+### Prerequisites
+- Windows 10/11
+- .NET 10 SDK
+
+### Installation & Run
 1. **Clone the repository**:
-   ```bash
+   ```powershell
    git clone <repository_url>
-   cd CameraSync/PotopopiCamSync
+   cd CameraSync
    ```
 
-2. **Run the Application**:
-   ```bash
-   dotnet run
+2. **Build and Run**:
+   ```powershell
+   dotnet run --project PotopopiCamSync
    ```
 
-3. **First-time Setup**: 
-   On your very first run, you will be greeted with a Setup Wizard. Here you can configure your Local Backup folder and your Immich API credentials.
+3. **Run Tests**:
+   ```powershell
+   dotnet test
+   ```
 
-4. **Syncing**:
-   Leave the app running (it will live in your system tray). Plug in your Canon EOS 6D or insert an SD card. The application will detect the device, scan the `DCIM` folder, and automatically start pushing files to your local folder and Immich instance!
+### First-Time Setup
+On the first launch, a **Setup Wizard** will guide you through:
+1. Configuring your **Local Backup Folder** (Mandatory).
+2. Setting up your **Immich URL** and **API Key** (Optional).
+3. Assigning friendly names to your detected devices.
 
-## License
+## 🧪 Testing
+The project includes a dedicated test suite `PotopopiCamSync.Tests` covering:
+- iterative MTP and SD Card scanning logic.
+- The two-stage orchestration pipeline.
+- Local folder organization and duplicate skipping.
+- Immich API communication mocking.
 
+## 🗺️ Roadmap
+- [ ] **UI Polish**: Modernizing the interface with Gradients and Outfit/Inter typography.
+- [ ] **Parallel Processing**: Allowing Stage 2 uploads while Stage 1 downloads are still in progress.
+- [ ] **Auto-Cleanup**: Optional feature to delete files from the source device after a successful verified sync.
+- [ ] **Resilience**: Implementing exponential backoff for network-related failures.
+
+## 📄 License
 This project is licensed under the MIT License - see the LICENSE file for details.
