@@ -1,118 +1,195 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using MediaDevices;
+using Microsoft.Extensions.Logging;
 using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
 {
     public class MtpDeviceProvider : IDeviceProvider
     {
-        private MediaDevice _device;
+        private MediaDevice? _device;
+        private readonly ILogger<MtpDeviceProvider> _logger;
+
         public string DeviceId { get; private set; }
         public string DeviceName { get; private set; }
         public bool IsConnected => _device != null && _device.IsConnected;
 
-        public MtpDeviceProvider(string deviceId, string deviceName)
+        private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg", ".jpeg", ".cr2", ".cr3", ".nef", ".arw", ".dng", ".mp4", ".mov", ".avi"
+        };
+
+        public MtpDeviceProvider(string deviceId, string deviceName, ILogger<MtpDeviceProvider>? logger = null)
         {
             DeviceId = deviceId;
             DeviceName = deviceName;
+            _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<MtpDeviceProvider>.Instance;
         }
 
-        public Task ConnectAsync()
+        public Task ConnectAsync(CancellationToken cancellationToken = default)
         {
             return Task.Run(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var devices = MediaDevice.GetDevices();
-                _device = devices.FirstOrDefault(d => d.DeviceId == DeviceId || d.FriendlyName == DeviceName);
+                _device = null;
+                foreach (var d in devices)
+                {
+                    if (string.Equals(d.DeviceId, DeviceId, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(d.FriendlyName, DeviceName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _device = d;
+                        break;
+                    }
+                }
+
                 if (_device != null)
                 {
                     _device.Connect();
+                    _logger.LogInformation("Connected to MTP device: {Name}", DeviceName);
                 }
                 else
                 {
-                    throw new Exception("MTP Device not found or could not be connected.");
+                    throw new InvalidOperationException($"MTP Device not found: {DeviceName}");
                 }
-            });
+            }, cancellationToken);
         }
 
         public void Disconnect()
         {
-            if (_device != null && _device.IsConnected)
+            if (_device != null)
             {
-                _device.Disconnect();
-                _device.Dispose();
+                try
+                {
+                    if (_device.IsConnected)
+                        _device.Disconnect();
+                    _device.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error disconnecting MTP device: {Name}", DeviceName);
+                }
+                finally
+                {
+                    _device = null;
+                }
             }
         }
 
-        public Task<List<SyncFile>> GetFilesAsync()
+        public Task<List<SyncFile>> GetFilesAsync(CancellationToken cancellationToken = default)
         {
             return Task.Run(() =>
             {
                 var files = new List<SyncFile>();
-                if (!IsConnected) return files;
+                if (!IsConnected || _device == null) return files;
 
-                // Look for DCIM folder across all storage
                 var storages = _device.GetDrives();
                 foreach (var storage in storages)
                 {
-                    var dcimPath = _device.GetDirectories(storage.RootDirectory.FullName).FirstOrDefault(d => d.EndsWith("DCIM", StringComparison.OrdinalIgnoreCase));
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    string root = storage.RootDirectory.FullName;
+                    string? dcimPath = null;
+                    foreach (var dir in _device.GetDirectories(root))
+                    {
+                        if (dir.EndsWith("DCIM", StringComparison.OrdinalIgnoreCase))
+                        {
+                            dcimPath = dir;
+                            break;
+                        }
+                    }
+
                     if (!string.IsNullOrEmpty(dcimPath))
                     {
-                        FindFilesRecursive(dcimPath, files, dcimPath);
+                        FindFilesIterative(dcimPath, files, dcimPath, cancellationToken);
                     }
                 }
+
+                _logger.LogInformation("Scanned MTP device {Name}: found {Count} files", DeviceName, files.Count);
                 return files;
-            });
+            }, cancellationToken);
         }
 
-        private void FindFilesRecursive(string path, List<SyncFile> files, string basePath)
+        private void FindFilesIterative(string rootPath, List<SyncFile> files, string basePath, CancellationToken cancellationToken)
         {
-            var directories = _device.GetDirectories(path);
-            foreach (var dir in directories)
-            {
-                FindFilesRecursive(dir, files, basePath);
-            }
+            var stack = new Stack<string>();
+            stack.Push(rootPath);
 
-            var fileItems = _device.GetFiles(path);
-            foreach (var file in fileItems)
+            while (stack.Count > 0)
             {
-                var fileInfo = _device.GetFileInfo(file);
-                // Filter only image/video types if needed, or take all
-                string ext = Path.GetExtension(file).ToLower();
-                if (ext == ".jpg" || ext == ".jpeg" || ext == ".cr2" || ext == ".mp4" || ext == ".mov")
+                cancellationToken.ThrowIfCancellationRequested();
+                string currentPath = stack.Pop();
+
+                try
                 {
-                    files.Add(new SyncFile
+                    foreach (var dir in _device!.GetDirectories(currentPath))
+                        stack.Push(dir);
+
+                    foreach (var filePath in _device.GetFiles(currentPath))
                     {
-                        OriginalPath = file,
-                        RelativePath = file.Substring(basePath.Length).TrimStart('\\', '/'),
-                        FileName = Path.GetFileName(file),
-                        Size = (long)fileInfo.Length,
-                        CreationTime = fileInfo.CreationTime ?? DateTime.Now
-                    });
+                        string ext = Path.GetExtension(filePath);
+                        if (!SupportedExtensions.Contains(ext)) continue;
+
+                        try
+                        {
+                            var info = _device.GetFileInfo(filePath);
+                            DateTime creationTime;
+                            if (info.CreationTime.HasValue)
+                                creationTime = info.CreationTime.Value;
+                            else if (info.LastWriteTime.HasValue)
+                                creationTime = info.LastWriteTime.Value;
+                            else
+                            {
+                                _logger.LogWarning("No timestamp on file {File}, skipping.", filePath);
+                                continue;
+                            }
+
+                            files.Add(new SyncFile
+                            {
+                                OriginalPath = filePath,
+                                RelativePath = filePath.Substring(basePath.Length).TrimStart('\\', '/'),
+                                FileName = Path.GetFileName(filePath),
+                                Size = (long)info.Length,
+                                CreationTime = creationTime
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Could not read file info for {File}", filePath);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not traverse directory {Dir}", currentPath);
                 }
             }
         }
 
-        public Task<Stream> GetFileStreamAsync(SyncFile file)
+        public Task DownloadToStreamAsync(SyncFile file, Stream destination, CancellationToken cancellationToken = default)
         {
             return Task.Run(() =>
             {
-                var memStream = new MemoryStream();
-                _device.DownloadFile(file.OriginalPath, memStream);
-                memStream.Position = 0;
-                return (Stream)memStream;
-            });
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_device == null) throw new InvalidOperationException("Device not connected.");
+                _device.DownloadFile(file.OriginalPath, destination);
+                _logger.LogDebug("Downloaded {File} from MTP device", file.FileName);
+            }, cancellationToken);
         }
 
-        public Task DeleteFileAsync(SyncFile file)
+        public Task DeleteFileAsync(SyncFile file, CancellationToken cancellationToken = default)
         {
             return Task.Run(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_device == null) throw new InvalidOperationException("Device not connected.");
                 _device.DeleteFile(file.OriginalPath);
-            });
+                _logger.LogInformation("Deleted {File} from MTP device", file.FileName);
+            }, cancellationToken);
         }
     }
 }

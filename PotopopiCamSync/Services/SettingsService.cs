@@ -13,9 +13,9 @@ namespace PotopopiCamSync.Services
         public AppConfig Config { get; private set; }
         public SyncState State { get; private set; }
 
-        public SettingsService()
+        public SettingsService(string? customBasePath = null)
         {
-            string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PotopopiCamSync");
+            string appData = customBasePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PotopopiCamSync");
             if (!Directory.Exists(appData))
             {
                 Directory.CreateDirectory(appData);

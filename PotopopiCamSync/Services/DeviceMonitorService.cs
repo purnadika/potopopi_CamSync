@@ -3,6 +3,7 @@ using System.Management;
 using System.Threading.Tasks;
 using System.Linq;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
 namespace PotopopiCamSync.Services
 {
@@ -10,8 +11,14 @@ namespace PotopopiCamSync.Services
     {
         private ManagementEventWatcher _insertWatcher;
         private ManagementEventWatcher _volumeWatcher;
+        private readonly ILogger<DeviceMonitorService> _logger;
         
         public event Action<IDeviceProvider> OnDeviceConnected;
+
+        public DeviceMonitorService(ILogger<DeviceMonitorService> logger)
+        {
+            _logger = logger;
+        }
 
         public void Start()
         {

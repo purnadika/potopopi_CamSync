@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
@@ -8,53 +10,60 @@ namespace PotopopiCamSync.Services
     public class LocalFolderSync : ISyncDestination
     {
         private readonly string _targetFolder;
+        private readonly ILogger<LocalFolderSync> _logger;
 
-        public LocalFolderSync(string targetFolder)
+        public LocalFolderSync(string targetFolder, ILogger<LocalFolderSync> logger)
         {
             _targetFolder = targetFolder;
+            _logger = logger;
         }
 
-        public async Task<bool> UploadAsync(SyncFile file, Stream fileStream)
+        /// <summary>
+        /// Copies a file from localFilePath into the local backup folder structure (yyyy-MM-dd\filename).
+        /// Returns the destination file path on success so the orchestrator can use it for further uploads.
+        /// </summary>
+        public async Task<bool> UploadAsync(SyncFile file, string localFilePath, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (string.IsNullOrEmpty(_targetFolder)) return false;
 
-                if (!Directory.Exists(_targetFolder))
-                {
-                    Directory.CreateDirectory(_targetFolder);
-                }
-
-                // Create date-based folder structure like 2026-04-26
                 string dateFolder = file.CreationTime.ToString("yyyy-MM-dd");
                 string finalDirPath = Path.Combine(_targetFolder, dateFolder);
-                if (!Directory.Exists(finalDirPath))
-                {
-                    Directory.CreateDirectory(finalDirPath);
-                }
+                Directory.CreateDirectory(finalDirPath);
 
                 string targetPath = Path.Combine(finalDirPath, file.FileName);
-                
-                // If file already exists locally with same size, skip writing
-                if (File.Exists(targetPath))
-                {
-                    var fileInfo = new FileInfo(targetPath);
-                    if (fileInfo.Length == file.Size)
-                        return true;
-                }
 
-                using (var fileStreamOutput = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
-                {
-                    fileStream.Position = 0;
-                    await fileStream.CopyToAsync(fileStreamOutput);
-                }
+                // Skip if already there with same size
+                if (File.Exists(targetPath) && new FileInfo(targetPath).Length == file.Size)
+                    return true;
 
+                using var source = File.OpenRead(localFilePath);
+                using var dest = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
+                await source.CopyToAsync(dest, cancellationToken);
+
+                _logger.LogInformation("Local backup saved: {Path}", targetPath);
                 return true;
             }
-            catch (Exception)
+            catch (OperationCanceledException)
             {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save local backup for {File}", file.FileName);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Returns the expected local backup path for a given file, regardless of whether it exists yet.
+        /// </summary>
+        public string GetLocalBackupPath(SyncFile file)
+        {
+            string dateFolder = file.CreationTime.ToString("yyyy-MM-dd");
+            return Path.Combine(_targetFolder, dateFolder, file.FileName);
         }
     }
 }

@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.4.11626.88 stable
+VisualStudioVersion = 18.4.11626.88
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PotopopiCamSync", "PotopopiCamSync\PotopopiCamSync.csproj", "{66E564BF-A220-1B8D-FB57-4B5FC931F12F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PotopopiCamSync.Tests", "PotopopiCamSync.Tests\PotopopiCamSync.Tests.csproj", "{9EAC272D-77DA-42A1-B72C-BD215D5A39C6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,4 +1,7 @@
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
+using PotopopiCamSync.Services;
+using PotopopiCamSync.ViewModels;
 
 namespace PotopopiCamSync.Views
 {
@@ -11,28 +14,31 @@ namespace PotopopiCamSync.Views
 
         private void Skip_Click(object sender, RoutedEventArgs e)
         {
-            App.Settings.Config.FirstRunCompleted = true;
-            App.Settings.SaveConfig();
-            
-            var mainWindow = new MainWindow();
-            mainWindow.DataContext = App.MainViewModel;
-            mainWindow.Show();
-            this.Close();
+            var settings = App.ServiceProvider.GetRequiredService<SettingsService>();
+            settings.Config.FirstRunCompleted = true;
+            settings.SaveConfig();
+
+            ShowDashboard();
         }
 
         private void Next_Click(object sender, RoutedEventArgs e)
         {
-            // For now, just open settings and pretend it's the wizard flow
-            var settings = new SettingsWindow();
-            settings.ShowDialog();
-            
-            App.Settings.Config.FirstRunCompleted = true;
-            App.Settings.SaveConfig();
-            
-            var mainWindow = new MainWindow();
-            mainWindow.DataContext = App.MainViewModel;
+            var settingsWindow = new SettingsWindow();
+            settingsWindow.ShowDialog();
+
+            var settings = App.ServiceProvider.GetRequiredService<SettingsService>();
+            settings.Config.FirstRunCompleted = true;
+            settings.SaveConfig();
+
+            ShowDashboard();
+        }
+
+        private void ShowDashboard()
+        {
+            var vm = App.ServiceProvider.GetRequiredService<MainViewModel>();
+            var mainWindow = new MainWindow { DataContext = vm };
             mainWindow.Show();
-            this.Close();
+            Close();
         }
     }
 }

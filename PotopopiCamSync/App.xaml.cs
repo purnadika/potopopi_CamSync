@@ -3,25 +3,47 @@ using Hardcodet.Wpf.TaskbarNotification;
 using PotopopiCamSync.Services;
 using PotopopiCamSync.ViewModels;
 using PotopopiCamSync.Views;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace PotopopiCamSync
 {
     public partial class App : Application
     {
         private TaskbarIcon _notifyIcon;
-        public static SettingsService Settings { get; private set; }
-        public static MainViewModel MainViewModel { get; private set; }
+        private readonly IHost _host;
 
-        protected override void OnStartup(StartupEventArgs e)
+        public static IServiceProvider ServiceProvider { get; private set; }
+
+        public App()
+        {
+            _host = Host.CreateDefaultBuilder()
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddProvider(new FileLoggerProvider());
+                })
+                .ConfigureServices((context, services) =>
+                {
+                    services.AddSingleton<SettingsService>();
+                    services.AddSingleton<DeviceMonitorService>();
+                    services.AddSingleton<SyncOrchestrator>();
+                    services.AddSingleton<MainViewModel>();
+                })
+                .Build();
+            
+            ServiceProvider = _host.Services;
+        }
+
+        protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-
-            // Initialize services
-            Settings = new SettingsService();
-            var orchestrator = new SyncOrchestrator(Settings);
-            var deviceMonitor = new DeviceMonitorService();
             
-            MainViewModel = new MainViewModel(orchestrator, deviceMonitor, Settings);
+            await _host.StartAsync();
+
+            var settings = ServiceProvider.GetRequiredService<SettingsService>();
+            var deviceMonitor = ServiceProvider.GetRequiredService<DeviceMonitorService>();
 
             // Initialize System Tray Icon
             _notifyIcon = new TaskbarIcon
@@ -40,11 +62,13 @@ namespace PotopopiCamSync
             var openItem = new System.Windows.Controls.MenuItem { Header = "Open Dashboard" };
             openItem.Click += (s, args) => ShowMainWindow();
             var exitItem = new System.Windows.Controls.MenuItem { Header = "Exit" };
-            exitItem.Click += (s, args) => 
+            exitItem.Click += async (s, args) => 
             {
                 deviceMonitor.Stop();
                 deviceMonitor.Dispose();
                 _notifyIcon.Dispose();
+                await _host.StopAsync();
+                _host.Dispose();
                 Current.Shutdown();
             };
             contextMenu.Items.Add(openItem);
@@ -52,7 +76,7 @@ namespace PotopopiCamSync
             _notifyIcon.ContextMenu = contextMenu;
 
             // Show UI or hide
-            if (!Settings.Config.FirstRunCompleted)
+            if (!settings.Config.FirstRunCompleted)
             {
                 var wizard = new SetupWizardWindow();
                 wizard.Show();
@@ -78,7 +102,7 @@ namespace PotopopiCamSync
                 }
             }
 
-            var newMw = new MainWindow { DataContext = MainViewModel };
+            var newMw = new MainWindow { DataContext = ServiceProvider.GetRequiredService<MainViewModel>() };
             newMw.Show();
         }
 
