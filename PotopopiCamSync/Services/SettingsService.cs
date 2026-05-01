@@ -10,8 +10,8 @@ namespace PotopopiCamSync.Services
         private readonly string _configFilePath;
         private readonly string _stateFilePath;
 
-        public AppConfig Config { get; private set; }
-        public SyncState State { get; private set; }
+        public AppConfig Config { get; private set; } = null!;
+        public SyncState State { get; private set; } = null!;
 
         public SettingsService(string? customBasePath = null)
         {

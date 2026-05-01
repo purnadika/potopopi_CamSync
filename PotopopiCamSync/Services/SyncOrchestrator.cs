@@ -14,6 +14,7 @@ namespace PotopopiCamSync.Services
     {
         private readonly SettingsService _settingsService;
         private readonly ILogger<SyncOrchestrator> _logger;
+        private readonly ILoggerFactory _loggerFactory;
 
         // Untuk parallel pipeline
         private class SyncFileJob
@@ -27,10 +28,11 @@ namespace PotopopiCamSync.Services
         public event Action<string>? OnSyncCompleted;
         public event Action<SyncMetrics>? OnMetricsUpdated;
 
-        public SyncOrchestrator(SettingsService settingsService, ILogger<SyncOrchestrator> logger)
+        public SyncOrchestrator(SettingsService settingsService, ILogger<SyncOrchestrator> logger, ILoggerFactory loggerFactory)
         {
             _settingsService = settingsService;
             _logger = logger;
+            _loggerFactory = loggerFactory;
         }
 
         /// <summary>
@@ -392,7 +394,6 @@ namespace PotopopiCamSync.Services
             return $"{len:0.##} {sizes[order]}";
         }
 
-        private ILogger<T> CreateLogger<T>() =>
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<T>.Instance;
+        private ILogger<T> CreateLogger<T>() => _loggerFactory.CreateLogger<T>();
     }
 }

@@ -13,7 +13,7 @@ namespace PotopopiCamSync.Services
         private ManagementEventWatcher? _volumeWatcher;
         private readonly ILogger<DeviceMonitorService> _logger;
         
-        public event Action<IDeviceProvider> OnDeviceConnected;
+        public event Action<IDeviceProvider>? OnDeviceConnected;
 
         public DeviceMonitorService(ILogger<DeviceMonitorService> logger)
         {
@@ -36,9 +36,9 @@ namespace PotopopiCamSync.Services
                 _volumeWatcher.EventArrived += VolumeInsertedEvent;
                 _volumeWatcher.Start();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Handle or log WMI exceptions (might require admin rights depending on OS settings, but usually ok)
+                _logger.LogError(ex, "Failed to start WMI watchers in DeviceMonitorService.");
             }
         }
 

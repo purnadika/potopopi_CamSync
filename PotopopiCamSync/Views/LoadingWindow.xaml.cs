@@ -19,8 +19,8 @@ public partial class LoadingWindow : Window
         });
     }
 
-    public void Close()
+    public new void Close()
     {
-        Dispatcher.Invoke(() => this.Close());
+        Dispatcher.Invoke(() => base.Close());
     }
 }

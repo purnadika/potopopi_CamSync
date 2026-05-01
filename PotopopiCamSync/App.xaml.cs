@@ -16,7 +16,7 @@ namespace PotopopiCamSync
         private System.Threading.Mutex? _mutex;
         private System.Threading.EventWaitHandle? _instanceEvent;
 
-        public static IServiceProvider ServiceProvider { get; private set; }
+        public static IServiceProvider ServiceProvider { get; private set; } = null!;
 
         public App()
         {
