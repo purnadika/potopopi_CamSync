@@ -14,6 +14,7 @@ namespace PotopopiCamSync
         private TaskbarIcon? _notifyIcon;
         private readonly IHost _host;
         private System.Threading.Mutex? _mutex;
+        private System.Threading.EventWaitHandle? _instanceEvent;
 
         public static IServiceProvider ServiceProvider { get; private set; }
 
@@ -41,14 +42,31 @@ namespace PotopopiCamSync
         protected override async void OnStartup(StartupEventArgs e)
         {
             const string appName = "PotopopiCamSync_SingleInstanceMutex";
+            const string eventName = "PotopopiCamSync_ShowWindowEvent";
+            
             _mutex = new System.Threading.Mutex(true, appName, out bool createdNew);
 
             if (!createdNew)
             {
-                MessageBox.Show("Potopopi CamSync is already running! Please check your system tray (bottom right corner).", "Already Running", MessageBoxButton.OK, MessageBoxImage.Information);
+                try
+                {
+                    var existingEvent = System.Threading.EventWaitHandle.OpenExisting(eventName);
+                    existingEvent.Set();
+                }
+                catch { }
+
+                MessageBox.Show("Potopopi CamSync is already running! The dashboard will now be shown.", "Already Running", MessageBoxButton.OK, MessageBoxImage.Information);
                 Current.Shutdown();
                 return;
             }
+
+            _instanceEvent = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, eventName);
+            System.Threading.ThreadPool.RegisterWaitForSingleObject(_instanceEvent, 
+                (state, timeout) => 
+                {
+                    Dispatcher.Invoke(() => ShowMainWindow());
+                }, 
+                null, -1, false);
 
             base.OnStartup(e);
 
@@ -140,6 +158,10 @@ namespace PotopopiCamSync
             {
                 _mutex.ReleaseMutex();
                 _mutex.Dispose();
+            }
+            if (_instanceEvent != null)
+            {
+                _instanceEvent.Dispose();
             }
             base.OnExit(e);
         }
