@@ -27,6 +27,9 @@ namespace PotopopiCamSync.ViewModels
         private bool _isSyncing;
 
         [ObservableProperty]
+        private double _syncProgressPercentage;
+
+        [ObservableProperty]
         private bool _immichConfigured;
 
         public ObservableCollection<string> Logs { get; } = new();
@@ -42,6 +45,7 @@ namespace PotopopiCamSync.ViewModels
 
             _orchestrator.OnSyncProgress += OnSyncProgress;
             _orchestrator.OnSyncCompleted += OnSyncCompleted;
+            _orchestrator.OnMetricsUpdated += OnMetricsUpdated;
             _deviceMonitor.OnDeviceConnected += OnDeviceConnected;
 
             _deviceMonitor.Start();
@@ -106,6 +110,7 @@ namespace PotopopiCamSync.ViewModels
 
         private void StartSync(Func<System.Threading.Tasks.Task> syncAction)
         {
+            SyncProgressPercentage = 0;
             IsSyncing = true;
             _ = syncAction().ContinueWith(_ =>
             {
@@ -168,6 +173,22 @@ namespace PotopopiCamSync.ViewModels
                     foreach (var d in UnregisteredDevices)
                         if (string.Equals(d.DeviceId, device.DeviceId, StringComparison.OrdinalIgnoreCase)) exists = true;
                     if (!exists) UnregisteredDevices.Add(device);
+                }
+            });
+        }
+
+        private void OnMetricsUpdated(Models.SyncMetrics metrics)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (metrics.TotalFiles > 0)
+                {
+                    // Calculate progress based on both stages (Download + Upload)
+                    // Total steps = TotalFiles * 2
+                    // Completed steps = DownloadedFiles + UploadedFiles
+                    double totalSteps = metrics.TotalFiles * 2;
+                    double completedSteps = metrics.DownloadedFiles + metrics.UploadedFiles;
+                    SyncProgressPercentage = (completedSteps / totalSteps) * 100;
                 }
             });
         }

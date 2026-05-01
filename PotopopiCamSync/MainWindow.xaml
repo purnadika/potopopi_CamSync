@@ -3,6 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Potopopi CamSync Dashboard" Height="600" Width="800"
         WindowStartupLocation="CenterScreen" MinHeight="550" MinWidth="700" Background="#F8F9FA" Icon="/Assets/icon.png">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
     
     <Grid Margin="15">
         <Grid.RowDefinitions>
@@ -25,6 +28,9 @@
                         <TextBlock Text="Status: " Foreground="#666666" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding StatusText}" Foreground="#4CAF50" FontWeight="Medium"/>
                     </StackPanel>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding SyncProgressPercentage}" Height="6" Margin="0,8,15,0" 
+                                 Visibility="{Binding IsSyncing, Converter={StaticResource BoolToVis}}" 
+                                 Foreground="#4CAF50" Background="#E0E0E0" BorderThickness="0"/>
                 </StackPanel>
 
                 <Button Grid.Column="1" Content="Cancel Sync" Width="100" Height="36"
