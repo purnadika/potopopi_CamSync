@@ -7,6 +7,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PotopopiCamSync", "Potopopi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PotopopiCamSync.Tests", "PotopopiCamSync.Tests\PotopopiCamSync.Tests.csproj", "{9EAC272D-77DA-42A1-B72C-BD215D5A39C6}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AI_CONTEXT", "AI_CONTEXT", "{34EB0EF7-B67C-48B8-A3AA-FC65B179F770}"
+	ProjectSection(SolutionItems) = preProject
+		docs\AI_CONTEXT.md = docs\AI_CONTEXT.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,6 +22,10 @@ Global
 		{66E564BF-A220-1B8D-FB57-4B5FC931F12F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{66E564BF-A220-1B8D-FB57-4B5FC931F12F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{66E564BF-A220-1B8D-FB57-4B5FC931F12F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9EAC272D-77DA-42A1-B72C-BD215D5A39C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9EAC272D-77DA-42A1-B72C-BD215D5A39C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9EAC272D-77DA-42A1-B72C-BD215D5A39C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9EAC272D-77DA-42A1-B72C-BD215D5A39C6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -11,7 +11,7 @@ namespace PotopopiCamSync
 {
     public partial class App : Application
     {
-        private TaskbarIcon _notifyIcon;
+        private TaskbarIcon? _notifyIcon;
         private readonly IHost _host;
 
         public static IServiceProvider ServiceProvider { get; private set; }
@@ -30,6 +30,7 @@ namespace PotopopiCamSync
                     services.AddSingleton<DeviceMonitorService>();
                     services.AddSingleton<SyncOrchestrator>();
                     services.AddSingleton<MainViewModel>();
+                    services.AddHttpClient<UpdateChecker>();
                 })
                 .Build();
             
@@ -39,11 +40,26 @@ namespace PotopopiCamSync
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-            
+
             await _host.StartAsync();
 
             var settings = ServiceProvider.GetRequiredService<SettingsService>();
             var deviceMonitor = ServiceProvider.GetRequiredService<DeviceMonitorService>();
+            var updateChecker = ServiceProvider.GetRequiredService<UpdateChecker>();
+
+            // Background update check (non-blocking)
+            _ = updateChecker.CheckForUpdateAsync()
+                .ContinueWith(task =>
+                {
+                    if (task.Result != null)
+                    {
+                        MessageBox.Show(
+                            $"Update available: {task.Result.LatestVersion}\n\nRelease notes:\n{task.Result.ReleaseNotes}",
+                            "Potopopi CamSync - Update Available",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                    }
+                }, TaskScheduler.FromCurrentSynchronizationContext());
 
             // Initialize System Tray Icon
             _notifyIcon = new TaskbarIcon

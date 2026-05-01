@@ -16,7 +16,7 @@ namespace PotopopiCamSync.Services
 
         public string DeviceId { get; private set; }
         public string DeviceName { get; private set; }
-        public bool IsConnected => _device != null && _device.IsConnected;
+        public bool IsConnected => _device is not null && _device.IsConnected;
 
         private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -47,7 +47,7 @@ namespace PotopopiCamSync.Services
                     }
                 }
 
-                if (_device != null)
+                if (_device is not null)
                 {
                     _device.Connect();
                     _logger.LogInformation("Connected to MTP device: {Name}", DeviceName);
@@ -61,7 +61,7 @@ namespace PotopopiCamSync.Services
 
         public void Disconnect()
         {
-            if (_device != null)
+            if (_device is not null)
             {
                 try
                 {
@@ -85,7 +85,7 @@ namespace PotopopiCamSync.Services
             return Task.Run(() =>
             {
                 var files = new List<SyncFile>();
-                if (!IsConnected || _device == null) return files;
+                if (!IsConnected || _device is null) return files;
 
                 var storages = _device.GetDrives();
                 foreach (var storage in storages)
@@ -175,7 +175,7 @@ namespace PotopopiCamSync.Services
             return Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (_device == null) throw new InvalidOperationException("Device not connected.");
+                if (_device is null) throw new InvalidOperationException("Device not connected.");
                 _device.DownloadFile(file.OriginalPath, destination);
                 _logger.LogDebug("Downloaded {File} from MTP device", file.FileName);
             }, cancellationToken);
@@ -186,7 +186,7 @@ namespace PotopopiCamSync.Services
             return Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (_device == null) throw new InvalidOperationException("Device not connected.");
+                if (_device is null) throw new InvalidOperationException("Device not connected.");
                 _device.DeleteFile(file.OriginalPath);
                 _logger.LogInformation("Deleted {File} from MTP device", file.FileName);
             }, cancellationToken);

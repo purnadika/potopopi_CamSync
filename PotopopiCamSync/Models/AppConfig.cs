@@ -15,6 +15,13 @@ namespace PotopopiCamSync.Models
         public string ImmichApiKey { get; set; } = string.Empty;
         public bool EnableImmichSync { get; set; } = false;
 
+        // Performance throttling (bytes per second, 0 = unlimited)
+        public long DownloadSpeedLimitBps { get; set; } = 0;
+        public long UploadSpeedLimitBps { get; set; } = 0;
+
+        // Exclusion filters (glob patterns, comma-separated)
+        public string ExclusionPatterns { get; set; } = "*.tmp,*.bak,.DS_Store,Thumbs.db";
+
         public List<DeviceSignature> RegisteredDevices { get; set; } = new List<DeviceSignature>();
     }
 
@@ -23,5 +30,6 @@ namespace PotopopiCamSync.Models
         public string Id { get; set; } = string.Empty; // e.g. Volume Serial or MTP PnP Device ID
         public string Type { get; set; } = "Mtp"; // Mtp or SdCard
         public string Name { get; set; } = string.Empty;
+        public string ImmichAlbum { get; set; } = string.Empty; // Album name in Immich (optional)
     }
 }

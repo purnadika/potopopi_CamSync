@@ -1,10 +1,12 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using PotopopiCamSync.Services;
+using PotopopiCamSync.Views;
 
 namespace PotopopiCamSync.ViewModels
 {
@@ -16,6 +18,7 @@ namespace PotopopiCamSync.ViewModels
         private readonly ILogger<MainViewModel> _logger;
 
         private CancellationTokenSource? _syncCts;
+        private LoadingWindow? _loadingWindow;
 
         [ObservableProperty]
         private string _statusText = "Waiting for devices...";
@@ -119,7 +122,7 @@ namespace PotopopiCamSync.ViewModels
 
         private void OnDeviceConnected(IDeviceProvider device)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(async () =>
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 bool isRegistered = _settingsService.Config.RegisteredDevices.Exists(d =>
                     string.Equals(d.Id, device.DeviceId, StringComparison.OrdinalIgnoreCase));
@@ -131,8 +134,32 @@ namespace PotopopiCamSync.ViewModels
                         if (string.Equals(d.DeviceId, device.DeviceId, StringComparison.OrdinalIgnoreCase)) exists = true;
                     if (!exists) ActiveDevices.Add(device);
 
-                    Log($"Detected registered device: {device.DeviceName}. Starting sync...");
-                    await _orchestrator.StartSyncAsync(device, GetNewToken());
+                    Log($"Detected registered device: {device.DeviceName}. Preparing sync...");
+
+                    // Show loading screen
+                    _loadingWindow = new LoadingWindow();
+                    _loadingWindow.UpdateStatus($"Connecting to {device.DeviceName}...", "Checking device data...");
+                    _loadingWindow.Show();
+
+                    // Run sync in background thread
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            _loadingWindow.UpdateStatus($"Syncing {device.DeviceName}...", "Scanning files...");
+                            await _orchestrator.StartSyncAsync(device, GetNewToken());
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Sync error: {ex.Message}");
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                Log($"Sync error: {ex.Message}"));
+                        }
+                        finally
+                        {
+                            _loadingWindow?.Close();
+                        }
+                    });
                 }
                 else
                 {
