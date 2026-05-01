@@ -13,6 +13,7 @@ namespace PotopopiCamSync
     {
         private TaskbarIcon? _notifyIcon;
         private readonly IHost _host;
+        private System.Threading.Mutex? _mutex;
 
         public static IServiceProvider ServiceProvider { get; private set; }
 
@@ -39,6 +40,16 @@ namespace PotopopiCamSync
 
         protected override async void OnStartup(StartupEventArgs e)
         {
+            const string appName = "PotopopiCamSync_SingleInstanceMutex";
+            _mutex = new System.Threading.Mutex(true, appName, out bool createdNew);
+
+            if (!createdNew)
+            {
+                MessageBox.Show("Potopopi CamSync is already running! Please check your system tray (bottom right corner).", "Already Running", MessageBoxButton.OK, MessageBoxImage.Information);
+                Current.Shutdown();
+                return;
+            }
+
             base.OnStartup(e);
 
             await _host.StartAsync();
@@ -125,6 +136,11 @@ namespace PotopopiCamSync
         protected override void OnExit(ExitEventArgs e)
         {
             _notifyIcon?.Dispose();
+            if (_mutex != null)
+            {
+                _mutex.ReleaseMutex();
+                _mutex.Dispose();
+            }
             base.OnExit(e);
         }
     }

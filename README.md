@@ -68,7 +68,7 @@ The project includes a dedicated test suite `PotopopiCamSync.Tests` covering:
 - Immich API communication mocking.
 
 ## 🗺️ Roadmap
-- [ ] **Auto-Cleanup / Smart Cleanup**: Optional feature to delete files from the source device after a successful verified sync to Immich.
+- [ ] **Smart Auto-Cleanup (Immich-Verified)**: The current app only deletes files from the SD card after *local* download. This upcoming feature will wait and delete them ONLY after they are successfully verified and uploaded to Immich.
 - [ ] **Exclusion Filters**: Skip specific file types like RAW (`*.CR2`, `*.CR3`) or cache files (`*.TEMP`).
 - [ ] **Parallel Processing**: Allowing Stage 2 uploads while Stage 1 downloads are still in progress.
 - [ ] **Albums Support**: Automatically group uploaded files into specific Immich Albums.
