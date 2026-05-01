@@ -21,6 +21,7 @@ namespace PotopopiCamSync.Models
 
         // Exclusion filters (glob patterns, comma-separated)
         public string ExclusionPatterns { get; set; } = "*.tmp,*.bak,.DS_Store,Thumbs.db";
+        public string ImmichExclusionPatterns { get; set; } = "*.cr2,*.cr3,*.arw,*.dng,*.nef,*.orf";
 
         public List<DeviceSignature> RegisteredDevices { get; set; } = new List<DeviceSignature>();
     }

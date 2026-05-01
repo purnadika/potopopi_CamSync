@@ -162,6 +162,27 @@ public class SyncOrchestratorTests : IDisposable
         Assert.Contains(_progressMessages, m => m.Contains("not configured", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task StartSyncAsync_Downloads_But_Skips_Immich_If_Pattern_Matches()
+    {
+        _settings.Config.EnableImmichSync = true;
+        _settings.Config.ImmichUrl = "http://fake";
+        _settings.Config.ImmichApiKey = "fake";
+        _settings.Config.ImmichExclusionPatterns = "*.cr2";
+
+        var file = MakeSyncFile("IMG_006.cr2");
+        var mock = MakeMockDevice(files: new List<SyncFile> { file });
+
+        await _orchestrator.StartSyncAsync(mock.Object);
+
+        // Verify it was downloaded
+        string localPath = Path.Combine(_localFolder, "2026-04-26", "IMG_006.cr2");
+        Assert.True(File.Exists(localPath));
+
+        // Verify log message contains "Skip"
+        Assert.Contains(_progressMessages, m => m.Contains("Immich Skip") && m.Contains("IMG_006.cr2"));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_localFolder))

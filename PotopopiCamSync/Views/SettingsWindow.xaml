@@ -28,11 +28,15 @@
                     <Button Grid.Column="1" Content="Browse..." Width="75" Click="BrowseFolder_Click" Padding="8,4"/>
                 </Grid>
                 <CheckBox Name="chkDeleteAfter" Content="Delete files from camera/SD after sync" Margin="0,0,0,8" VerticalAlignment="Center"/>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="Keep files on camera/SD for (days): " VerticalAlignment="Center"/>
                     <TextBox Name="txtKeepDays" Width="60" Text="0" Padding="5,4" Margin="5,0,0,0"/>
                     <TextBlock Text=" (0 = forever/immediately)" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="Gray" FontSize="11"/>
                 </StackPanel>
+                
+                <TextBlock Text="Global Exclusion Patterns (comma-separated):" Margin="0,0,0,5"/>
+                <TextBox Name="txtExclusionPatterns" Margin="0,0,0,5" Padding="8" ToolTip="Example: *.tmp, *.bak, .DS_Store"/>
+                <TextBlock Text="Files matching these will not be downloaded from camera at all." FontSize="10" Foreground="Gray" Margin="0,0,0,8"/>
             </StackPanel>
         </Border>
 
@@ -46,6 +50,10 @@
                 
                 <TextBlock Text="Immich API Key:" Margin="0,0,0,5"/>
                 <TextBox Name="txtImmichApiKey" Margin="0,0,0,8" Padding="8"/>
+
+                <TextBlock Text="Immich Exclusion Patterns (skipped for upload):" Margin="0,0,0,5"/>
+                <TextBox Name="txtImmichExclusionPatterns" Margin="0,0,0,5" Padding="8" ToolTip="Example: *.cr2, *.arw, *.dng"/>
+                <TextBlock Text="Files matching these will stay in local backup but NOT upload to Immich." FontSize="10" Foreground="Gray" Margin="0,0,0,8"/>
 
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                     <Button Content="Test Connection" Width="110" Click="TestImmichConnection_Click" Padding="8,4" Margin="0,0,10,0"/>
