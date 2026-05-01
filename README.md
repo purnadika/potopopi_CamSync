@@ -13,8 +13,10 @@ Built with a **Two-Stage Sync Pipeline**, it is specifically engineered to handl
 - **🛑 Full Cancellation Support**: Long-running syncs can be stopped at any moment with the click of a button.
 - **🔄 Local → Immich Sync**: A dedicated manual feature to push your local backup library to Immich at any time.
 - **📁 Smart Organization**: Automatically organizes your local backups into clean `yyyy-MM-dd` date-based folder structures.
+- **🧠 Smart Duplicate Handling**: Safely skip uploads if the file already exists on Immich, making it safe to run multiple laptops syncing the same camera without duplicating files or wasting bandwidth.
+- **🌐 Network Resilience**: Built-in exponential backoff retry policies for network failures during Immich uploads.
 - **💉 Dependency Injection**: Modern architecture using `Microsoft.Extensions.Hosting` for better maintainability and testability.
-- **📜 Structured Logging**: Comprehensive logging to `app.log` for easy troubleshooting.
+- **📜 Structured Logging**: Comprehensive logging to `app.log` for easy troubleshooting, including detailed conflict/duplicate tracking.
 
 ## 🛠️ Technology Stack
 
@@ -31,7 +33,11 @@ Built with a **Two-Stage Sync Pipeline**, it is specifically engineered to handl
 - Windows 10/11
 - .NET 10 SDK
 
-### Installation & Run
+### Option A: Pre-built Release (Recommended)
+Download the latest `PotopopiCamSync.exe` from the [GitHub Releases](../../releases). 
+It is a single, lightweight executable (~3.6MB) that automatically prompts you to install the .NET 10 Desktop Runtime if you don't already have it.
+
+### Option B: Build from Source
 1. **Clone the repository**:
    ```powershell
    git clone <repository_url>
@@ -62,10 +68,10 @@ The project includes a dedicated test suite `PotopopiCamSync.Tests` covering:
 - Immich API communication mocking.
 
 ## 🗺️ Roadmap
-- [ ] **UI Polish**: Modernizing the interface with Gradients and Outfit/Inter typography.
+- [ ] **Auto-Cleanup / Smart Cleanup**: Optional feature to delete files from the source device after a successful verified sync to Immich.
+- [ ] **Exclusion Filters**: Skip specific file types like RAW (`*.CR2`, `*.CR3`) or cache files (`*.TEMP`).
 - [ ] **Parallel Processing**: Allowing Stage 2 uploads while Stage 1 downloads are still in progress.
-- [ ] **Auto-Cleanup**: Optional feature to delete files from the source device after a successful verified sync.
-- [ ] **Resilience**: Implementing exponential backoff for network-related failures.
+- [ ] **Albums Support**: Automatically group uploaded files into specific Immich Albums.
 
 ## 📄 License
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
