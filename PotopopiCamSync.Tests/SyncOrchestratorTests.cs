@@ -33,7 +33,7 @@ public class SyncOrchestratorTests : IDisposable
         _settings.Config.LocalBackupFolder = _localFolder;
         _settings.Config.EnableImmichSync = false;
 
-        _orchestrator = new SyncOrchestrator(_settings, NullLogger<SyncOrchestrator>.Instance);
+        _orchestrator = new SyncOrchestrator(_settings, NullLogger<SyncOrchestrator>.Instance, NullLoggerFactory.Instance);
         _orchestrator.OnSyncProgress += msg => _progressMessages.Add(msg);
     }
 

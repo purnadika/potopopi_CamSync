@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 using PotopopiCamSync.Models;
 using PotopopiCamSync.Services;
@@ -86,7 +87,7 @@ namespace PotopopiCamSync.Tests
             Assert.Equal(1, removed);
             Assert.Equal(2, _devices.Count);
             Assert.Null(_devices.FirstOrDefault(d => d.Id == "DEVICE_002"));
-            Assert.Single(_devices.Where(d => d.Name == "Camera 1"));
+            Assert.Single(_devices, d => d.Name == "Camera 1");
         }
 
         /// <summary>
@@ -179,7 +180,6 @@ namespace PotopopiCamSync.Tests
         public void DeviceList_Empty_IsEmpty()
         {
             Assert.Empty(_devices);
-            Assert.Equal(0, _devices.Count);
         }
 
         /// <summary>
