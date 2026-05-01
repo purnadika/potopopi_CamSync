@@ -150,11 +150,19 @@ namespace PotopopiCamSync.Views
             txtImmichStatus.Text = "Testing connection...";
             txtImmichStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gray);
 
+            // Reset borders
+            txtImmichUrl.BorderBrush = System.Windows.SystemColors.ActiveBorderBrush;
+            txtImmichUrl.BorderThickness = new Thickness(1);
+            txtImmichApiKey.BorderBrush = System.Windows.SystemColors.ActiveBorderBrush;
+            txtImmichApiKey.BorderThickness = new Thickness(1);
+
             string url = txtImmichUrl.Text.TrimEnd('/');
             if (string.IsNullOrWhiteSpace(url))
             {
                 txtImmichStatus.Text = "Please enter a valid URL.";
                 txtImmichStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
+                txtImmichUrl.BorderBrush = System.Windows.Media.Brushes.Red;
+                txtImmichUrl.BorderThickness = new Thickness(2);
                 return;
             }
 
@@ -181,27 +189,48 @@ namespace PotopopiCamSync.Views
                 {
                     txtImmichStatus.Text = "Connection successful! API Key is valid.";
                     txtImmichStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Green);
+                    
+                    // Highlight both boxes green
+                    txtImmichUrl.BorderBrush = System.Windows.Media.Brushes.Green;
+                    txtImmichUrl.BorderThickness = new Thickness(2);
+                    txtImmichApiKey.BorderBrush = System.Windows.Media.Brushes.Green;
+                    txtImmichApiKey.BorderThickness = new Thickness(2);
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
                     txtImmichStatus.Text = "Connected to server, but API Key is invalid (Unauthorized).";
                     txtImmichStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Orange);
+                    
+                    // Highlight API key orange/red
+                    txtImmichUrl.BorderBrush = System.Windows.Media.Brushes.Green;
+                    txtImmichUrl.BorderThickness = new Thickness(2);
+                    txtImmichApiKey.BorderBrush = System.Windows.Media.Brushes.Orange;
+                    txtImmichApiKey.BorderThickness = new Thickness(2);
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
                     txtImmichStatus.Text = "Server reached, but Immich API not found. Check the URL.";
                     txtImmichStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
+                    
+                    txtImmichUrl.BorderBrush = System.Windows.Media.Brushes.Red;
+                    txtImmichUrl.BorderThickness = new Thickness(2);
                 }
                 else
                 {
                     txtImmichStatus.Text = $"Connection failed: Server returned {response.StatusCode}";
                     txtImmichStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
+                    
+                    txtImmichUrl.BorderBrush = System.Windows.Media.Brushes.Red;
+                    txtImmichUrl.BorderThickness = new Thickness(2);
                 }
             }
             catch (System.Exception ex)
             {
                 txtImmichStatus.Text = $"Connection failed: {ex.Message}";
                 txtImmichStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
+                
+                txtImmichUrl.BorderBrush = System.Windows.Media.Brushes.Red;
+                txtImmichUrl.BorderThickness = new Thickness(2);
             }
         }
     }

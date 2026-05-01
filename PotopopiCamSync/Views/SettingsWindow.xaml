@@ -42,17 +42,15 @@
             <StackPanel Margin="0,0,0,0">
                 <CheckBox Name="chkEnableImmich" Content="Enable Immich Sync" Margin="0,0,0,8" VerticalAlignment="Center"/>
                 <TextBlock Text="Immich Server URL (e.g. https://immich.mydomain.com):"/>
-                <Grid Margin="0,5,0,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox Name="txtImmichUrl" Margin="0,0,8,0" Padding="8"/>
-                    <Button Grid.Column="1" Content="Test Connection" Width="110" Click="TestImmichConnection_Click" Padding="8,4"/>
-                </Grid>
-                <TextBlock Name="txtImmichStatus" Text="" Margin="0,0,0,5" Visibility="Collapsed" FontSize="11" FontWeight="SemiBold"/>
+                <TextBox Name="txtImmichUrl" Margin="0,5,0,8" Padding="8"/>
+                
                 <TextBlock Text="Immich API Key:" Margin="0,0,0,5"/>
-                <TextBox Name="txtImmichApiKey" Margin="0,0,0,0" Padding="8"/>
+                <TextBox Name="txtImmichApiKey" Margin="0,0,0,8" Padding="8"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                    <Button Content="Test Connection" Width="110" Click="TestImmichConnection_Click" Padding="8,4" Margin="0,0,10,0"/>
+                    <TextBlock Name="txtImmichStatus" Text="" Visibility="Collapsed" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
             </StackPanel>
         </Border>
 
