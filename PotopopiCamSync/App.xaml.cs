@@ -53,7 +53,10 @@ namespace PotopopiCamSync
                     var existingEvent = System.Threading.EventWaitHandle.OpenExisting(eventName);
                     existingEvent.Set();
                 }
-                catch { }
+                catch (System.Exception ex)
+                {
+                    System.IO.File.AppendAllText("app.log", $"[{System.DateTime.Now}] [Error] Failed to signal existing instance: {ex.Message}{System.Environment.NewLine}");
+                }
 
                 MessageBox.Show("Potopopi CamSync is already running! The dashboard will now be shown.", "Already Running", MessageBoxButton.OK, MessageBoxImage.Information);
                 Current.Shutdown();
