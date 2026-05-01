@@ -1,98 +1,181 @@
 <Window x:Class="PotopopiCamSync.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Potopopi CamSync" Height="520" Width="640"
-        WindowStartupLocation="CenterScreen">
-    <Grid Margin="10">
+        Title="Potopopi CamSync Dashboard" Height="600" Width="800"
+        WindowStartupLocation="CenterScreen" MinHeight="550" MinWidth="700" Background="#F8F9FA">
+    
+    <Grid Margin="15">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Potopopi CamSync Dashboard" FontSize="24" FontWeight="Bold" Margin="0,0,0,10"/>
+        <!-- Header Panel -->
+        <Border Grid.Row="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" Padding="15" Margin="0,0,0,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Potopopi CamSync" FontSize="22" FontWeight="Bold" Foreground="#333333"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="Status: " Foreground="#666666" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding StatusText}" Foreground="#4CAF50" FontWeight="Medium"/>
+                    </StackPanel>
+                </StackPanel>
 
-        <GroupBox Header="Sync Status" Grid.Row="1" Margin="0,0,0,10">
-            <Grid Margin="5">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <!-- Status bar -->
-                <Grid Grid.Row="0" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding StatusText}" FontWeight="Bold" VerticalAlignment="Center"/>
-                    <Button Grid.Column="1" Content="Cancel" Width="70"
-                            Command="{Binding CancelSyncCommand}"
-                            Visibility="{Binding IsSyncing, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                </Grid>
-
-                <!-- Active Devices -->
-                <TextBlock Text="Active Devices:" FontWeight="Bold" Grid.Row="1" Margin="0,0,0,5"/>
-                <ItemsControl Grid.Row="2" ItemsSource="{Binding ActiveDevices}" Margin="0,0,0,10">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center"
-                                           Foreground="DarkGreen" FontWeight="SemiBold"/>
-                                <Button Grid.Column="1" Content="Sync Now" Width="80"
-                                        Command="{Binding DataContext.ManualSyncCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding}"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <!-- Unregistered Devices -->
-                <TextBlock Text="Unregistered Devices:" FontWeight="Bold" Grid.Row="3" Margin="0,0,0,5"/>
-                <ItemsControl Grid.Row="4" ItemsSource="{Binding UnregisteredDevices}" Margin="0,0,0,10">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center"/>
-                                <Button Grid.Column="1" Content="Register" Width="70"
-                                        Command="{Binding DataContext.RegisterDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding}"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <!-- Log -->
-                <ListBox Grid.Row="5" ItemsSource="{Binding Logs}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <Button Grid.Column="1" Content="Cancel Sync" Width="100" Height="36"
+                        Command="{Binding CancelSyncCommand}"
+                        Visibility="{Binding IsSyncing, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Background="#EF5350" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="4"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
             </Grid>
-        </GroupBox>
+        </Border>
 
-        <!-- Bottom buttons -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <!-- Sync Local → Immich, only visible when Immich is configured -->
-            <Button Content="Sync Local → Immich" Width="140" Margin="0,0,10,0"
-                    Command="{Binding SyncLocalToImmichCommand}"
-                    Visibility="{Binding ImmichConfigured, Converter={StaticResource BoolToVisibilityConverter}}"/>
-            <Button Content="Settings" Width="100" Margin="0,0,10,0" Click="Settings_Click"/>
-            <Button Content="Hide to Tray" Width="100" Click="Hide_Click"/>
-        </StackPanel>
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5*"/>
+                <ColumnDefinition Width="4*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Devices Column (Left) -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" Padding="15" Margin="0,0,15,15">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Active Devices" FontWeight="Bold" FontSize="15" Margin="0,0,0,12" Foreground="#333333"/>
+                    
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15">
+                        <ItemsControl ItemsSource="{Binding ActiveDevices}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#EEEEEE" BorderThickness="1" CornerRadius="4" Margin="0,0,0,8" Padding="12" Background="#FAFAFA">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DeviceName}" FontWeight="SemiBold" Foreground="#2E7D32" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Content="Sync Now" Width="85" Padding="8,6" Margin="10,0,0,0"
+                                                    Command="{Binding DataContext.ManualSyncCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Background="#4CAF50" Foreground="White" FontWeight="Medium" BorderThickness="0" Cursor="Hand">
+                                                <Button.Resources>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="CornerRadius" Value="3"/>
+                                                    </Style>
+                                                </Button.Resources>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <TextBlock Grid.Row="2" Text="Unregistered Devices" FontWeight="Bold" FontSize="15" Margin="0,0,0,12" Foreground="#333333"/>
+                    
+                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding UnregisteredDevices}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#EEEEEE" BorderThickness="1" CornerRadius="4" Margin="0,0,0,8" Padding="12" Background="#FAFAFA">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center" Foreground="#555555" TextTrimming="CharacterEllipsis"/>
+                                            <Button Grid.Column="1" Content="Register" Width="85" Padding="8,6" Margin="10,0,0,0"
+                                                    Command="{Binding DataContext.RegisterDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Background="#2196F3" Foreground="White" FontWeight="Medium" BorderThickness="0" Cursor="Hand">
+                                                <Button.Resources>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="CornerRadius" Value="3"/>
+                                                    </Style>
+                                                </Button.Resources>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Logs Column (Right) -->
+            <Border Grid.Column="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" Padding="15" Margin="0,0,0,15">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <TextBlock Text="Activity Log" FontWeight="Bold" FontSize="15" Margin="0,0,0,12" Foreground="#333333"/>
+                    
+                    <Border Grid.Row="1" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Background="#1E1E1E">
+                        <ListBox ItemsSource="{Binding Logs}" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Padding="5">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" Foreground="#D4D4D4" Margin="0,2"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Bottom Buttons -->
+        <Border Grid.Row="2" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" Padding="12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Sync Local → Immich" Width="160" Margin="0,0,12,0" Padding="10,8"
+                        Command="{Binding SyncLocalToImmichCommand}"
+                        Visibility="{Binding ImmichConfigured, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Background="#FF9800" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="4"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+                
+                <Button Content="Settings" Width="100" Margin="0,0,12,0" Click="Settings_Click" Padding="10,8" 
+                        Background="#E0E0E0" Foreground="#333333" FontWeight="SemiBold" BorderThickness="0" Cursor="Hand">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="4"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+                
+                <Button Content="Hide to Tray" Width="100" Click="Hide_Click" Padding="10,8" 
+                        Background="#E0E0E0" Foreground="#333333" FontWeight="SemiBold" BorderThickness="0" Cursor="Hand">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="4"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>
