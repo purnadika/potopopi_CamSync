@@ -109,7 +109,7 @@ namespace PotopopiCamSync.Services
                     return await _httpClient.SendAsync(request, ct);
                 }, cancellationToken);
 
-                if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Conflict)
+                if (response.IsSuccessStatusCode)
                 {
                     _logger.LogInformation("Immich upload success: {File}", file.FileName);
 
@@ -119,6 +119,11 @@ namespace PotopopiCamSync.Services
                         await TryAssignToAlbumAsync(file, albumName, cancellationToken);
                     }
 
+                    return true;
+                }
+                else if (response.StatusCode == HttpStatusCode.Conflict)
+                {
+                    _logger.LogInformation("Immich upload skipped (Already exists): {File}", file.FileName);
                     return true;
                 }
 
