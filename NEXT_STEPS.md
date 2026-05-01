@@ -196,6 +196,21 @@ var filesToSync = allFiles
 
 ---
 
+## ✨ NEW TARGET: Feature #4 - RAW Subfolder Separation 📁
+
+**Difficulty**: ⭐⭐⭐☆☆ (Medium)  
+**Time Estimate**: 2 hours  
+**Impact**: Medium (organized backups)  
+**Files to Modify**: 2-3  
+
+### What it does
+Automatically detect RAW files and move them to a separate subfolder (e.g., `[Date]/RAW/`) during download.
+- Customizable folder name (default: "RAW")
+- Auto-detection based on common extensions (`.CR2`, `.ARW`, `.NEF`, `.DNG`, etc.)
+- Clean backup structure: JPEGs in root, RAWs in subfolder.
+
+---
+
 ## ✨ ALTERNATIVE: Feature #3 - Enhanced Logging 🔍
 
 **Difficulty**: ⭐⭐☆☆☆ (Easy)  
@@ -269,6 +284,7 @@ I guide you through the implementation in real-time
 |---------|-----------|------|--------|-----------|
 | Smart Cleanup | ⭐⭐ | 1-2h | Medium | YES |
 | Exclusion Filters | ⭐⭐⭐ | 2-3h | Medium | YES |
+| RAW Folder Separation | ⭐⭐⭐ | 2h | Medium | YES |
 | Albums | ⭐⭐⭐ | 2-3h | Low | MAYBE |
 | Enhanced Logging | ⭐⭐ | 1.5h | Medium | YES |
 | UI Polish | ⭐⭐⭐⭐ | 5h | Low | NICE |

@@ -28,6 +28,7 @@ Impact: **Medium** | Effort: **Medium** | Timeline: **2 weeks**
 - [ ] **Smart Cleanup** (Delete after sync toggle)
 - [ ] **Exclusion Filters** (Glob/Regex patterns)
 - [ ] **Immich Albums** (Per-device album assignment)
+- [ ] **RAW Subfolder Separation** (Move RAW files to `/RAW` subfolder)
 
 ### Priority 4: **UI/UX POLISH** ✨ (Nice to Have)
 Impact: **Low** | Effort: **High** | Timeline: **2-3 weeks**
