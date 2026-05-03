@@ -36,6 +36,10 @@ namespace PotopopiCamSync.Services
             _deviceId = deviceId;
             _logger = logger;
             _httpClient = handler is not null ? new HttpClient(handler) : new HttpClient();
+            
+            // Set timeout to 30 minutes for large video uploads (GoPro etc)
+            _httpClient.Timeout = TimeSpan.FromMinutes(30);
+            
             _retryPolicy = CreateRetryPolicy();
         }
 
@@ -44,6 +48,7 @@ namespace PotopopiCamSync.Services
             return Policy
                 .Handle<HttpRequestException>()
                 .Or<TimeoutException>()
+                .Or<IOException>() // Handle "connection forcibly closed"
                 .OrResult<HttpResponseMessage>(r =>
                     r.StatusCode == System.Net.HttpStatusCode.RequestTimeout ||
                     r.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
@@ -55,8 +60,9 @@ namespace PotopopiCamSync.Services
                         TimeSpan.FromSeconds(Math.Pow(2, attempt)), // 2s, 4s, 8s
                     onRetry: (outcome, delay, retryCount, context) =>
                     {
-                        _logger.LogWarning("Retry {RetryCount}/3 in {DelaySeconds}s for Immich upload",
-                            retryCount, delay.TotalSeconds);
+                        var errorMessage = outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString();
+                        _logger.LogWarning("Retry {RetryCount}/3 in {DelaySeconds}s for Immich upload ({Error})",
+                            retryCount, delay.TotalSeconds, errorMessage);
                     });
         }
 
@@ -90,7 +96,7 @@ namespace PotopopiCamSync.Services
                     request.Headers.Add("x-api-key", _apiKey);
                     request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                    var content = new MultipartFormDataContent();
+                    using var content = new MultipartFormDataContent();
                     string deviceAssetId = $"{file.FileName}_{file.Size}";
 
                     content.Add(new StringContent(deviceAssetId), "deviceAssetId");
@@ -100,13 +106,16 @@ namespace PotopopiCamSync.Services
                     content.Add(new StringContent("false"), "isFavorite");
 
                     // Stream directly from disk — no MemoryStream
-                    var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 81920, useAsync: true);
-                    var streamContent = new StreamContent(fileStream);
+                    // Use a larger buffer for video files
+                    using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1024 * 1024, useAsync: true);
+                    using var streamContent = new StreamContent(fileStream);
                     streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(GetMimeType(file.FileName));
                     content.Add(streamContent, "assetData", file.FileName);
 
                     request.Content = content;
-                    return await _httpClient.SendAsync(request, ct);
+                    
+                    // Use completionOption: ResponseHeadersRead to avoid buffering response body
+                    return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
                 }, cancellationToken);
 
                 if (response.IsSuccessStatusCode)
@@ -136,9 +145,14 @@ namespace PotopopiCamSync.Services
                 _logger.LogWarning("Immich upload cancelled for {File}", file.FileName);
                 return false;
             }
+            catch (IOException ioEx) when (ioEx.Message.Contains("forcibly closed", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError(ioEx, "Immich server forcibly closed the connection for {File}. This usually means the file is too large for the server's configuration (check Nginx/Immich client_max_body_size).", file.FileName);
+                return false;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Immich upload error for {File}", file.FileName);
+                _logger.LogError(ex, "Immich upload error for {File}. Status: {Message}", file.FileName, ex.Message);
                 return false;
             }
         }

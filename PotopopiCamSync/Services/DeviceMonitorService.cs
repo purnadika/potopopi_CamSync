@@ -55,6 +55,8 @@ namespace PotopopiCamSync.Services
                 if (name.Contains("camera", StringComparison.OrdinalIgnoreCase) || 
                     (description is not null && description.Contains("camera", StringComparison.OrdinalIgnoreCase)) || 
                     name.Contains("eos", StringComparison.OrdinalIgnoreCase) || 
+                    name.Contains("gopro", StringComparison.OrdinalIgnoreCase) || 
+                    name.Contains("hero", StringComparison.OrdinalIgnoreCase) || 
                     name.Contains("portable device", StringComparison.OrdinalIgnoreCase) || 
                     (description is not null && description.Contains("portable device", StringComparison.OrdinalIgnoreCase)))
                 {

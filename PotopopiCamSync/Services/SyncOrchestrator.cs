@@ -101,6 +101,7 @@ namespace PotopopiCamSync.Services
                 int failedFiles = 0;
 
                 // Stage 2 uploader task (runs concurrently with Stage 1 downloads)
+                var immichFilter = new FileFilter(config.ImmichExclusionPatterns);
                 var uploadTask = Task.Run(async () =>
                 {
                     try
@@ -119,15 +120,25 @@ namespace PotopopiCamSync.Services
                                 !string.IsNullOrEmpty(config.ImmichUrl) &&
                                 !string.IsNullOrEmpty(config.ImmichApiKey))
                             {
-                                Progress($"  → [Upload] {job.File.FileName}");
-                                var immichSync = new ImmichSync(config.ImmichUrl, config.ImmichApiKey, device.DeviceId, CreateLogger<ImmichSync>());
+                                // Check if file is excluded from Immich
+                                if (immichFilter.ShouldExclude(job.File.FileName))
+                                {
+                                    Progress($"  → [Immich Skip] {job.File.FileName} (Match exclusion pattern)");
+                                    _logger.LogInformation("Skipped Immich upload for {File} due to exclusion patterns.", job.File.FileName);
+                                    immichOk = true; // Mark as OK so it's recorded as synced locally
+                                }
+                                else
+                                {
+                                    Progress($"  → [Upload] {job.File.FileName}");
+                                    var immichSync = new ImmichSync(config.ImmichUrl, config.ImmichApiKey, device.DeviceId, CreateLogger<ImmichSync>());
 
-                                // Get album name from device config if available
-                                var deviceConfig = config.RegisteredDevices.FirstOrDefault(d => d.Id == device.DeviceId);
-                                string? albumName = deviceConfig?.ImmichAlbum;
+                                    // Get album name from device config if available
+                                    var deviceConfig = config.RegisteredDevices.FirstOrDefault(d => d.Id == device.DeviceId);
+                                    string? albumName = deviceConfig?.ImmichAlbum;
 
-                                immichOk = await immichSync.UploadAsync(job.File, job.LocalPath, albumName, cancellationToken);
-                                if (!immichOk) Progress($"  ✗ Immich upload failed: {job.File.FileName}");
+                                    immichOk = await immichSync.UploadAsync(job.File, job.LocalPath, albumName, cancellationToken);
+                                    if (!immichOk) Progress($"  ✗ Immich upload failed: {job.File.FileName}");
+                                }
                             }
 
                             if (immichOk)
@@ -324,6 +335,8 @@ namespace PotopopiCamSync.Services
             Progress($"Found {localFiles.Count} file(s) in local backup. Uploading to Immich...");
             int count = 0;
 
+            var immichFilter = new FileFilter(config.ImmichExclusionPatterns);
+
             foreach (var localPath in localFiles)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -331,6 +344,16 @@ namespace PotopopiCamSync.Services
                 if (syncedSet.Contains(fileId)) continue;
 
                 var info = new FileInfo(localPath);
+
+                // Check exclusion pattern
+                if (immichFilter.ShouldExclude(info.Name))
+                {
+                    _logger.LogInformation("Skipped Immich upload for {File} during local sync due to exclusion patterns.", info.Name);
+                    syncedSet.Add(fileId); // Mark as synced so we don't keep skipping it in logs
+                    _settingsService.SaveState();
+                    continue;
+                }
+
                 var syncFile = new SyncFile
                 {
                     OriginalPath = localPath,
@@ -341,7 +364,7 @@ namespace PotopopiCamSync.Services
                 };
 
                 Progress($"[{++count}] → Immich: {info.Name}");
-                bool ok = await immichSync.UploadAsync(syncFile, localPath, cancellationToken);
+                bool ok = await immichSync.UploadAsync(syncFile, localPath, null, cancellationToken);
                 if (ok)
                 {
                     syncedSet.Add(fileId);

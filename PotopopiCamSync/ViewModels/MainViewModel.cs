@@ -1,5 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -98,6 +100,33 @@ namespace PotopopiCamSync.ViewModels
         {
             if (IsSyncing) return;
             StartSync(() => _orchestrator.SyncLocalToImmichAsync(GetNewToken()));
+        }
+
+        [RelayCommand]
+        private void OpenLocalFolder()
+        {
+            var folder = _settingsService.Config.LocalBackupFolder;
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                Log("Local Backup Folder is not configured.");
+                return;
+            }
+
+            if (!Directory.Exists(folder))
+            {
+                Log($"Folder does not exist: {folder}");
+                return;
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start("explorer.exe", folder);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to open folder: {Folder}", folder);
+                Log($"Failed to open folder: {ex.Message}");
+            }
         }
 
         [RelayCommand]

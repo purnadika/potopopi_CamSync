@@ -33,16 +33,28 @@
                                  Foreground="#4CAF50" Background="#E0E0E0" BorderThickness="0"/>
                 </StackPanel>
 
-                <Button Grid.Column="1" Content="Cancel Sync" Width="100" Height="36"
-                        Command="{Binding CancelSyncCommand}"
-                        Visibility="{Binding IsSyncing, Converter={StaticResource BoolToVisibilityConverter}}"
-                        Background="#EF5350" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand">
-                    <Button.Resources>
-                        <Style TargetType="Border">
-                            <Setter Property="CornerRadius" Value="4"/>
-                        </Style>
-                    </Button.Resources>
-                </Button>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Open Folder" Width="100" Height="36" Margin="0,0,10,0"
+                            Command="{Binding OpenLocalFolderCommand}"
+                            Background="#607D8B" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="4"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+
+                    <Button Content="Cancel Sync" Width="100" Height="36"
+                            Command="{Binding CancelSyncCommand}"
+                            Visibility="{Binding IsSyncing, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Background="#EF5350" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="4"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 

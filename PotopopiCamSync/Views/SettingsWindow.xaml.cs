@@ -33,6 +33,9 @@ namespace PotopopiCamSync.Views
             txtImmichUrl.Text = config.ImmichUrl;
             txtImmichApiKey.Text = config.ImmichApiKey;
 
+            txtExclusionPatterns.Text = config.ExclusionPatterns;
+            txtImmichExclusionPatterns.Text = config.ImmichExclusionPatterns;
+
             RefreshDevicesList();
         }
 
@@ -87,6 +90,9 @@ namespace PotopopiCamSync.Views
             config.EnableImmichSync = immichEnabled;
             config.ImmichUrl        = txtImmichUrl.Text;
             config.ImmichApiKey     = txtImmichApiKey.Text;
+
+            config.ExclusionPatterns = txtExclusionPatterns.Text;
+            config.ImmichExclusionPatterns = txtImmichExclusionPatterns.Text;
 
             _settings.SaveConfig();
 
