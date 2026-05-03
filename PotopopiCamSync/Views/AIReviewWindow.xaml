@@ -1,0 +1,53 @@
+<Window x:Class="PotopopiCamSync.Views.AIReviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI Analysis Review" Height="500" Width="700"
+        WindowStartupLocation="CenterOwner" Background="#F8F9FA" Icon="/Assets/icon.png">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="AI Analysis Results" FontSize="24" FontWeight="Bold" Foreground="#2D3436"/>
+        <TextBlock Grid.Row="1" Text="The following files were flagged as potentially blurry or duplicates. Review them in your local folder." 
+                   Margin="0,5,0,20" Foreground="#636E72" TextWrapping="Wrap"/>
+
+        <Border Grid.Row="2" Background="White" CornerRadius="8" BorderBrush="#DFE6E9" BorderThickness="1">
+            <ListView ItemsSource="{Binding FlaggedFiles}" BorderThickness="0" Background="Transparent" Margin="5">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Reason" Width="100">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="4" Padding="6,2">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#FF7675"/> <!-- Red for blurry -->
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Reason}" Value="Duplicate">
+                                                        <Setter Property="Background" Value="#FDCB6E"/> <!-- Yellow for duplicate -->
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding Reason}" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                                    </Border>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="File Name" DisplayMemberBinding="{Binding FileName}" Width="200"/>
+                        <GridViewColumn Header="Full Path" DisplayMemberBinding="{Binding Path}" Width="350"/>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Open Local Folder" Click="OpenFolder_Click" Padding="15,8" Margin="0,0,10,0"/>
+            <Button Content="Close" Click="Close_Click" Padding="25,8" Background="#0984E3" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+        </StackPanel>
+    </Grid>
+</Window>

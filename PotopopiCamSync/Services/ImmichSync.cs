@@ -5,9 +5,9 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Polly;
-using Polly.CircuitBreaker;
 using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
@@ -35,149 +35,262 @@ namespace PotopopiCamSync.Services
             _apiKey = apiKey;
             _deviceId = deviceId;
             _logger = logger;
-            _httpClient = handler is not null ? new HttpClient(handler) : new HttpClient();
+
+            if (handler != null)
+            {
+                _httpClient = new HttpClient(handler);
+            }
+            else
+            {
+                var socketsHandler = new SocketsHttpHandler
+                {
+                    PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                    KeepAlivePingDelay = TimeSpan.FromSeconds(60),
+                    KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
+                    EnableMultipleHttp2Connections = true
+                };
+                _httpClient = new HttpClient(socketsHandler);
+            }
             
-            // Set timeout to 30 minutes for large video uploads (GoPro etc)
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "PotopopiCamSync/1.3.0-dev");
+            _httpClient.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+            _httpClient.DefaultRequestVersion = HttpVersion.Version11;
             _httpClient.Timeout = TimeSpan.FromMinutes(30);
             
             _retryPolicy = CreateRetryPolicy();
         }
+
 
         private IAsyncPolicy<HttpResponseMessage> CreateRetryPolicy()
         {
             return Policy
                 .Handle<HttpRequestException>()
                 .Or<TimeoutException>()
-                .Or<IOException>() // Handle "connection forcibly closed"
+                .Or<IOException>()
                 .OrResult<HttpResponseMessage>(r =>
-                    r.StatusCode == System.Net.HttpStatusCode.RequestTimeout ||
-                    r.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
-                    r.StatusCode == System.Net.HttpStatusCode.BadGateway ||
-                    r.StatusCode == System.Net.HttpStatusCode.GatewayTimeout)
-                .WaitAndRetryAsync(
-                    retryCount: 3,
-                    sleepDurationProvider: attempt =>
-                        TimeSpan.FromSeconds(Math.Pow(2, attempt)), // 2s, 4s, 8s
-                    onRetry: (outcome, delay, retryCount, context) =>
+                    r.StatusCode == HttpStatusCode.RequestTimeout ||
+                    r.StatusCode == HttpStatusCode.ServiceUnavailable ||
+                    r.StatusCode == HttpStatusCode.BadGateway ||
+                    r.StatusCode == HttpStatusCode.GatewayTimeout)
+                .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
+                    (outcome, delay, retryCount, context) =>
                     {
-                        var errorMessage = outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString();
                         _logger.LogWarning("Retry {RetryCount}/3 in {DelaySeconds}s for Immich upload ({Error})",
-                            retryCount, delay.TotalSeconds, errorMessage);
+                            retryCount, delay.TotalSeconds, outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
                     });
         }
 
-        /// <summary>
-        /// Streams the file at localFilePath directly to the Immich API.
-        /// No full-file buffering in memory.
-        /// Includes exponential backoff retry on network failures.
-        /// </summary>
         public async Task<bool> UploadAsync(SyncFile file, string localFilePath, CancellationToken cancellationToken = default)
-            => await UploadAsync(file, localFilePath, albumName: null, cancellationToken);
+            => await UploadAsync(file, localFilePath, null, cancellationToken);
 
-        /// <summary>
-        /// Streams the file at localFilePath directly to the Immich API with optional album assignment.
-        /// </summary>
         public async Task<bool> UploadAsync(SyncFile file, string localFilePath, string? albumName, CancellationToken cancellationToken = default)
         {
             try
             {
-                if (string.IsNullOrEmpty(_immichUrl) || string.IsNullOrEmpty(_apiKey))
-                    return false;
+                if (string.IsNullOrEmpty(_immichUrl) || string.IsNullOrEmpty(_apiKey)) return false;
+                if (!File.Exists(localFilePath)) { _logger.LogWarning("Local file not found: {Path}", localFilePath); return false; }
 
-                if (!File.Exists(localFilePath))
+                // Use chunked upload for files > 50MB to bypass proxy limits (Cloudflare etc.)
+                if (file.Size > 50 * 1024 * 1024)
                 {
-                    _logger.LogWarning("Immich upload skipped — local file not found: {Path}", localFilePath);
-                    return false;
+                    return await UploadChunkedAsync(file, localFilePath, albumName, cancellationToken);
                 }
+
+                return await UploadSingleAsync(file, localFilePath, albumName, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Immich upload error {File}: {Message}", file.FileName, ex.Message);
+                return false;
+            }
+        }
+
+        private async Task<bool> UploadSingleAsync(SyncFile file, string localFilePath, string? albumName, CancellationToken cancellationToken)
+        {
+            var response = await _retryPolicy.ExecuteAsync(async (ct) =>
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{_immichUrl}/assets");
+                request.Headers.Add("x-api-key", _apiKey);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                request.Headers.ExpectContinue = false;
+
+                using var content = new MultipartFormDataContent();
+                content.Add(new StringContent($"{file.FileName}_{file.Size}"), "deviceAssetId");
+                content.Add(new StringContent(_deviceId), "deviceId");
+                content.Add(new StringContent(file.CreationTime.ToString("o")), "fileCreatedAt");
+                content.Add(new StringContent(file.CreationTime.ToString("o")), "fileModifiedAt");
+                content.Add(new StringContent("false"), "isFavorite");
+
+                using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, true);
+                using var streamContent = new StreamContent(fileStream);
+                streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(GetMimeType(file.FileName));
+                content.Add(streamContent, "assetData", file.FileName);
+                request.Content = content;
+
+                return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            }, cancellationToken);
+
+            return await HandleResponseAsync(response, file, albumName, cancellationToken);
+        }
+
+        private async Task<bool> UploadChunkedAsync(SyncFile file, string localFilePath, string? albumName, CancellationToken cancellationToken)
+        {
+            const long chunkSize = 30 * 1024 * 1024; // 30MB per chunk
+            int totalChunks = (int)Math.Ceiling((double)file.Size / chunkSize);
+            string assetId = Guid.NewGuid().ToString();
+            
+            _logger.LogInformation("Starting chunked upload for {File} ({Size}MB, {Count} chunks)", 
+                file.FileName, file.Size / (1024 * 1024), totalChunks);
+
+            for (int i = 0; i < totalChunks; i++)
+            {
+                int chunkIndex = i;
+                long offset = i * chunkSize;
+                long bytesToRead = Math.Min(chunkSize, file.Size - offset);
 
                 var response = await _retryPolicy.ExecuteAsync(async (ct) =>
                 {
                     using var request = new HttpRequestMessage(HttpMethod.Post, $"{_immichUrl}/assets");
                     request.Headers.Add("x-api-key", _apiKey);
+                    request.Headers.Add("x-immich-chunk-index", chunkIndex.ToString());
+                    request.Headers.Add("x-immich-chunk-count", totalChunks.ToString());
+                    request.Headers.Add("x-immich-asset-id", assetId);
+                    
                     request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                     using var content = new MultipartFormDataContent();
-                    string deviceAssetId = $"{file.FileName}_{file.Size}";
-
-                    content.Add(new StringContent(deviceAssetId), "deviceAssetId");
+                    content.Add(new StringContent($"{file.FileName}_{file.Size}"), "deviceAssetId");
                     content.Add(new StringContent(_deviceId), "deviceId");
                     content.Add(new StringContent(file.CreationTime.ToString("o")), "fileCreatedAt");
                     content.Add(new StringContent(file.CreationTime.ToString("o")), "fileModifiedAt");
                     content.Add(new StringContent("false"), "isFavorite");
 
-                    // Stream directly from disk — no MemoryStream
-                    // Use a larger buffer for video files
-                    using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1024 * 1024, useAsync: true);
-                    using var streamContent = new StreamContent(fileStream);
+                    // Read chunk
+                    byte[] buffer = new byte[bytesToRead];
+                    using (var fs = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        fs.Seek(offset, SeekOrigin.Begin);
+                        await fs.ReadExactlyAsync(buffer, 0, (int)bytesToRead, ct);
+                    }
+
+                    var streamContent = new ByteArrayContent(buffer);
                     streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(GetMimeType(file.FileName));
                     content.Add(streamContent, "assetData", file.FileName);
-
                     request.Content = content;
-                    
-                    // Use completionOption: ResponseHeadersRead to avoid buffering response body
+
                     return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
                 }, cancellationToken);
 
-                if (response.IsSuccessStatusCode)
+                if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("Immich upload success: {File}", file.FileName);
-
-                    // Assign to album if specified
-                    if (!string.IsNullOrWhiteSpace(albumName))
-                    {
-                        await TryAssignToAlbumAsync(file, albumName, cancellationToken);
-                    }
-
-                    return true;
+                    return await HandleResponseAsync(response, file, albumName, cancellationToken);
                 }
-                else if (response.StatusCode == HttpStatusCode.Conflict)
-                {
-                    _logger.LogInformation("Immich upload skipped (Already exists): {File}", file.FileName);
-                    return true;
-                }
+                
+                _logger.LogDebug("Chunk {Index}/{Total} uploaded for {File}", chunkIndex + 1, totalChunks, file.FileName);
+            }
 
-                string body = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogWarning("Immich upload failed for {File}: {Status} — {Body}", file.FileName, response.StatusCode, body);
-                return false;
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Immich upload cancelled for {File}", file.FileName);
-                return false;
-            }
-            catch (IOException ioEx) when (ioEx.Message.Contains("forcibly closed", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogError(ioEx, "Immich server forcibly closed the connection for {File}. This usually means the file is too large for the server's configuration (check Nginx/Immich client_max_body_size).", file.FileName);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Immich upload error for {File}. Status: {Message}", file.FileName, ex.Message);
-                return false;
-            }
+            _logger.LogInformation("Chunked upload completed for {File}", file.FileName);
+            return true;
         }
 
-        private async Task TryAssignToAlbumAsync(SyncFile file, string albumName, CancellationToken cancellationToken)
+        private async Task<bool> HandleResponseAsync(HttpResponseMessage response, SyncFile file, string? albumName, CancellationToken cancellationToken)
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                var assetResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(body);
+                string? assetId = assetResponse?.id;
+
+                if (!string.IsNullOrWhiteSpace(assetId) && !string.IsNullOrWhiteSpace(albumName))
+                {
+                    await AddAssetToAlbumAsync(assetId, albumName, cancellationToken);
+                }
+                return true;
+            }
+            else if (response.StatusCode == HttpStatusCode.Conflict)
+            {
+                return true;
+            }
+
+            string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+            {
+                string hint = "";
+                if (errorBody.Contains("cloudflare", StringComparison.OrdinalIgnoreCase))
+                {
+                    hint = "\n[CLOUDFLARE DETECTED] Cloudflare Free has a 100MB limit. " +
+                           "Even chunked upload failed? Try bypassing Cloudflare (use direct IP).";
+                    try { PotopopiCamSync.App.ShowTrayNotification("Upload Failed", $"Cloudflare blocked '{file.FileName}'. Use direct IP."); } catch { }
+                }
+                _logger.LogError("Immich upload failed {File}: 413 Payload Too Large. {Hint}", file.FileName, hint);
+            }
+            else
+            {
+                _logger.LogWarning("Immich upload failed {File}: {Status} - {Body}", file.FileName, response.StatusCode, errorBody);
+            }
+            return false;
+        }
+
+        private async Task AddAssetToAlbumAsync(string assetId, string albumName, CancellationToken ct)
         {
             try
             {
-                // This is a best-effort operation; failures are logged but don't fail the sync
-                // In a real implementation, you'd need to:
-                // 1. Query albums API to get album ID by name
-                // 2. Add asset to album
+                string? albumId = await GetOrCreateAlbumAsync(albumName, ct);
+                if (string.IsNullOrEmpty(albumId)) return;
 
-                _logger.LogDebug("Album assignment for {File} to '{Album}' not yet implemented", file.FileName, albumName);
+                using var request = new HttpRequestMessage(HttpMethod.Put, $"{_immichUrl}/albums/{albumId}/assets");
+                request.Headers.Add("x-api-key", _apiKey);
+                
+                var payload = new { ids = new[] { assetId } };
+                request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(payload), System.Text.Encoding.UTF8, "application/json");
+
+                var res = await _httpClient.SendAsync(request, ct);
+                if (res.IsSuccessStatusCode) _logger.LogInformation("Assigned {AssetId} to album '{Album}'", assetId, albumName);
+                else _logger.LogWarning("Failed to assign to album: {Status}", res.StatusCode);
             }
-            catch (Exception ex)
+            catch (Exception ex) { _logger.LogWarning("Album assignment failed: {Msg}", ex.Message); }
+        }
+
+        private async Task<string?> GetOrCreateAlbumAsync(string albumName, CancellationToken ct)
+        {
+            try
             {
-                _logger.LogWarning(ex, "Could not assign {File} to album {Album}", file.FileName, albumName);
+                // Find existing
+                using var getReq = new HttpRequestMessage(HttpMethod.Get, $"{_immichUrl}/albums");
+                getReq.Headers.Add("x-api-key", _apiKey);
+                var getRes = await _httpClient.SendAsync(getReq, ct);
+                if (getRes.IsSuccessStatusCode)
+                {
+                    var albumsBody = await getRes.Content.ReadAsStringAsync(ct);
+                    var albums = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic[]>(albumsBody);
+                    var existing = albums?.FirstOrDefault(a => (string)a.albumName == albumName);
+                    if (existing != null) return (string)existing.id;
+                }
+
+                // Create new
+                using var postReq = new HttpRequestMessage(HttpMethod.Post, $"{_immichUrl}/albums");
+                postReq.Headers.Add("x-api-key", _apiKey);
+                var payload = new { albumName = albumName };
+                postReq.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(payload), System.Text.Encoding.UTF8, "application/json");
+                
+                var postRes = await _httpClient.SendAsync(postReq, ct);
+                if (postRes.IsSuccessStatusCode)
+                {
+                    var resBody = await postRes.Content.ReadAsStringAsync(ct);
+                    var newAlbum = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(resBody);
+                    string? newId = newAlbum?.id;
+                    return newId;
+                }
             }
+            catch (Exception ex) { _logger.LogWarning("GetOrCreateAlbum failed: {Msg}", ex.Message); }
+            return null;
         }
 
         private static string GetMimeType(string fileName)
+
         {
-            string ext = Path.GetExtension(fileName);
-            return ext.ToUpperInvariant() switch
+            string ext = Path.GetExtension(fileName).ToUpperInvariant();
+            return ext switch
             {
                 ".JPG" or ".JPEG" => "image/jpeg",
                 ".PNG"            => "image/png",

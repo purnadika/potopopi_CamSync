@@ -1,142 +1,224 @@
 <Window x:Class="PotopopiCamSync.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Settings" Height="700" Width="600" WindowStartupLocation="CenterOwner" MinHeight="600" MinWidth="500" Icon="/Assets/icon.png">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="15">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/> <!-- Device List -->
-                <RowDefinition Height="Auto"/> <!-- Buttons -->
-            </Grid.RowDefinitions>
+        Title="Settings" Height="650" Width="600" WindowStartupLocation="CenterOwner" MinHeight="600" MinWidth="500" Icon="/Assets/icon.png">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-            <!-- Local Sync Settings Section -->
-            <TextBlock Text="Local Sync Settings" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
-            <Border Grid.Row="1" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="0,0,0,12" Margin="0,0,0,12">
-                <StackPanel Margin="0,0,0,0">
-                    <TextBlock Text="Local Backup Folder:"/>
-                    <Grid Margin="0,5,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Name="txtLocalFolder" Margin="0,0,8,0" Padding="8"/>
-                        <Button Grid.Column="1" Content="Browse..." Width="75" Click="BrowseFolder_Click" Padding="8,4"/>
-                    </Grid>
-                    <CheckBox Name="chkDeleteAfter" Content="Delete files from camera/SD after sync" Margin="0,0,0,8" VerticalAlignment="Center"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <TextBlock Text="Keep files on camera/SD for (days): " VerticalAlignment="Center"/>
-                        <TextBox Name="txtKeepDays" Width="60" Text="0" Padding="5,4" Margin="5,0,0,0"/>
-                        <TextBlock Text=" (0 = forever/immediately)" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="Gray" FontSize="11"/>
+        <TabControl Margin="10">
+            <!-- General Settings -->
+            <TabItem Header="General">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="10">
+                    <StackPanel>
+                        <TextBlock Text="Local Sync Settings" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+                        
+                        <TextBlock Text="Local Backup Folder:" Margin="0,0,0,5"/>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Name="txtLocalFolder" Padding="8"/>
+                            <Button Grid.Column="1" Content="Browse..." Width="80" Click="BrowseFolder_Click" Margin="8,0,0,0" Padding="8,4"/>
+                        </Grid>
+
+                        <CheckBox Name="chkDeleteAfter" Content="Delete files from device after sync" Margin="0,0,0,10"/>
+                        
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                            <TextBlock Text="Keep files for (days): " VerticalAlignment="Center"/>
+                            <TextBox Name="txtKeepDays" Width="60" Text="0" Padding="5,4" Margin="5,0,0,0"/>
+                            <TextBlock Text=" (0 = immediately/forever)" Foreground="Gray" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Exclusion Patterns (comma-separated):" Margin="0,0,0,5"/>
+                        <TextBox Name="txtExclusionPatterns" Padding="8" ToolTip="Example: *.tmp, *.bak, .DS_Store"/>
+                        <TextBlock Text="Matches will not be downloaded from camera." FontSize="11" Foreground="Gray" Margin="0,5,0,15"/>
+
+                        <TextBlock Text="Speed Limits" FontWeight="Bold" Margin="0,10,0,10"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,10,0">
+                                <TextBlock Text="Download (MB/s):" Margin="0,0,0,5"/>
+                                <TextBox Name="txtDownloadLimit" Padding="8" Text="0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Text="Upload (MB/s):" Margin="0,0,0,5"/>
+                                <TextBox Name="txtUploadLimit" Padding="8" Text="0"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="(0 = unlimited)" FontSize="11" Foreground="Gray" Margin="0,5,0,0"/>
+                        <TextBlock Text="App Behavior" FontWeight="Bold" Margin="0,15,0,10"/>
+                        <CheckBox Name="chkStartMinimized" Content="Start Minimized (Background)" Margin="0,0,0,10"/>
+                        <CheckBox Name="chkMinimizeToTray" Content="Minimize to Tray instead of Taskbar" Margin="0,0,0,10" IsChecked="True"/>
                     </StackPanel>
-                    
-                    <TextBlock Text="Global Exclusion Patterns (comma-separated):" Margin="0,0,0,5"/>
-                    <TextBox Name="txtExclusionPatterns" Margin="0,0,0,5" Padding="8" ToolTip="Example: *.tmp, *.bak, .DS_Store"/>
-                    <TextBlock Text="Files matching these will not be downloaded from camera at all." FontSize="10" Foreground="Gray" Margin="0,0,0,8"/>
-                </StackPanel>
-            </Border>
+                </ScrollViewer>
+            </TabItem>
 
-            <!-- Immich Sync Settings Section -->
-            <TextBlock Grid.Row="2" Text="Immich Sync Settings" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
-            <Border Grid.Row="3" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="0,0,0,12" Margin="0,0,0,12">
-                <StackPanel Margin="0,0,0,0">
-                    <CheckBox Name="chkEnableImmich" Content="Enable Immich Sync" Margin="0,0,0,8" VerticalAlignment="Center"/>
-                    <TextBlock Text="Immich Server URL (e.g. https://immich.mydomain.com):"/>
-                    <TextBox Name="txtImmichUrl" Margin="0,5,0,8" Padding="8"/>
-                    
-                    <TextBlock Text="Immich API Key:" Margin="0,0,0,5"/>
-                    <TextBox Name="txtImmichApiKey" Margin="0,0,0,8" Padding="8"/>
+            <!-- Immich Accounts -->
+            <TabItem Header="Immich">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="10">
+                    <StackPanel>
+                        <TextBlock Text="Immich Integration" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+                        <CheckBox Name="chkEnableImmich" Content="Enable Immich Sync" Margin="0,0,0,15" FontWeight="SemiBold"/>
 
-                    <TextBlock Text="Immich Exclusion Patterns (skipped for upload):" Margin="0,0,0,5"/>
-                    <TextBox Name="txtImmichExclusionPatterns" Margin="0,0,0,5" Padding="8" ToolTip="Example: *.cr2, *.arw, *.dng"/>
-                    <TextBlock Text="Files matching these will stay in local backup but NOT upload to Immich." FontSize="10" Foreground="Gray" Margin="0,0,0,8"/>
+                        <TextBlock Text="Immich URL:" Margin="0,0,0,5"/>
+                        <TextBox Name="txtImmichUrl" Padding="8" Margin="0,0,0,10"/>
+                        
+                        <TextBlock Text="API Key:" Margin="0,0,0,5"/>
+                        <TextBox Name="txtImmichApiKey" Padding="8" Margin="0,0,0,10"/>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                        <Button Content="Test Connection" Width="110" Click="TestImmichConnection_Click" Padding="8,4" Margin="0,0,10,0"/>
-                        <TextBlock Name="txtImmichStatus" Text="" Visibility="Collapsed" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Upload Exclusion Patterns:" Margin="0,0,0,5"/>
+                        <TextBox Name="txtImmichExclusionPatterns" Padding="8" Margin="0,0,0,5"/>
+                        <TextBlock Text="Matches will be skipped for upload but kept locally." FontSize="11" Foreground="Gray" Margin="0,0,0,15"/>
+
+                        <Button Content="Test Connection" Width="120" Click="TestImmichConnection_Click" HorizontalAlignment="Left" Padding="8,4" Margin="0,0,0,10"/>
+                        <TextBlock Name="txtImmichStatus" Text="" Margin="0,0,0,15"/>
+                        
+                        <Separator Margin="0,10,0,15"/>
+                        <TextBlock Text="Immich Accounts Manager" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <Border BorderBrush="#D0D0D0" BorderThickness="1" MinHeight="100">
+                            <ListBox Name="lstAccounts" Height="120">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBox Text="{Binding Name, Mode=TwoWay}" FontWeight="Bold" BorderThickness="0" Background="Transparent" Padding="0"/>
+                                                <TextBlock Text="{Binding Url}" FontSize="10" Foreground="Gray"/>
+                                            </StackPanel>
+
+                                            <Button Grid.Column="1" Content="Remove" Click="RemoveAccount_Click" Tag="{Binding Id}" Background="Transparent" Foreground="Red" BorderThickness="0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                        <Button Content="+ Add New Account" Click="AddAccount_Click" Margin="0,10,0,0" Padding="10,5" Background="#3498DB" Foreground="White" BorderThickness="0" HorizontalAlignment="Right"/>
+
                     </StackPanel>
-                </StackPanel>
-            </Border>
+                </ScrollViewer>
+            </TabItem>
 
-            <!-- Registered Devices Section -->
-            <Grid Grid.Row="4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Registered Devices (Click to rename, use Unregister to remove)" FontWeight="Bold" FontSize="14" Margin="0,0,0,8" VerticalAlignment="Center"/>
-                <Button Grid.Column="1" Content="Refresh List" Width="90" Click="RefreshDevices_Click" Padding="8,4" Margin="8,0,0,0"/>
-            </Grid>
+            <!-- Registered Devices -->
+            <TabItem Header="Devices">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+                        <Button Content="Refresh List" Padding="10,4" Click="RefreshDevices_Click"/>
+                    </StackPanel>
 
-            <!-- Devices ListBox -->
-            <Border Grid.Row="6" BorderBrush="#D0D0D0" BorderThickness="1" Padding="0" Margin="0,0,0,12" Background="White">
-                <Grid>
-                    <ListBox Name="lstDevices" Margin="0" BorderThickness="0" HorizontalContentAlignment="Stretch" 
-                             ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="False">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="8,6" MinHeight="35">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*" MinWidth="100"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                    <Border Grid.Row="1" BorderBrush="#D0D0D0" BorderThickness="1">
+                        <ListBox Name="lstDevices" HorizontalContentAlignment="Stretch">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="8">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <TextBlock Text="{Binding Id}" Width="100" Foreground="Gray" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" FontSize="10" ToolTip="{Binding Id}"/>
+                                        <TextBox Grid.Column="1" Text="{Binding Name, Mode=TwoWay}" Padding="5" VerticalAlignment="Center" FontWeight="Bold"/>
+                                        <Button Grid.Column="2" Content="Unregister" Click="UnregisterDevice_Click" Tag="{Binding Id}" Margin="10,0,0,0" Padding="10,4" Background="#FF6B6B" Foreground="White" BorderThickness="0"/>
 
-                                    <!-- Device ID (Read-only) -->
-                                    <TextBlock Grid.Column="0" 
-                                               Text="{Binding Id}" 
-                                               Width="140" 
-                                               Foreground="#666666" 
-                                               VerticalAlignment="Center" 
-                                               TextTrimming="CharacterEllipsis" 
-                                               Margin="0,0,12,0"
-                                               ToolTip="{Binding Id}"/>
+                                        <!-- Profile Overrides -->
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,8,0,5">
+                                            <Grid Margin="0,0,0,5">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="100"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Folder Override:" VerticalAlignment="Center" FontSize="11" Foreground="#555"/>
+                                                <TextBox Grid.Column="1" Text="{Binding LocalFolderOverride, Mode=TwoWay}" Padding="3" FontSize="11" Background="#F9F9F9"/>
+                                            </Grid>
+                                            <Grid Margin="0,0,0,5">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="100"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Auto Album:" VerticalAlignment="Center" FontSize="11" Foreground="#555"/>
+                                                <TextBox Grid.Column="1" Text="{Binding ImmichAlbum, Mode=TwoWay}" Padding="3" FontSize="11" Background="#F9F9F9" ToolTip="Name of the album to create/add to in Immich"/>
+                                                <CheckBox Grid.Column="2" Content="Enable" IsChecked="{Binding AutoAlbumEnabled}" Margin="15,0,0,0" VerticalAlignment="Center" FontSize="11"/>
+                                            </Grid>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="100"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Immich Account:" VerticalAlignment="Center" FontSize="11" Foreground="#555"/>
+                                                <ComboBox Grid.Column="1" SelectedValue="{Binding ImmichAccountId}" SelectedValuePath="Id" DisplayMemberPath="Name" ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ImmichAccountsList}" FontSize="11"/>
+                                                <CheckBox Grid.Column="2" Content="Smart Scan" IsChecked="{Binding UseSmartScan}" Margin="15,0,0,0" VerticalAlignment="Center" FontSize="11"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Grid>
 
-                                    <!-- Device Name (Editable) -->
-                                    <TextBox Grid.Column="1" 
-                                             Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
-                                             Padding="6,4"
-                                             VerticalAlignment="Center"
-                                             Margin="0,0,12,0"/>
-
-                                    <!-- Unregister Button -->
-                                    <Button Grid.Column="2" 
-                                            Content="Unregister" 
-                                            Width="85" 
-                                            Click="UnregisterDevice_Click"
-                                            Tag="{Binding Id}"
-                                            Padding="8,4"
-                                            Background="#FF6B6B"
-                                            Foreground="White"
-                                            FontSize="11"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-
-                    <!-- Empty state message -->
-                    <TextBlock Name="txtNoDevices"
-                               Text="No devices registered yet. Connect a camera or SD card reader to register a device."
-                               Foreground="#999999"
-                               FontSize="12"
-                               TextAlignment="Center"
-                               VerticalAlignment="Center"
-                               HorizontalAlignment="Center"
-                               Visibility="Collapsed"
-                               Margin="20"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
                 </Grid>
-            </Border>
+            </TabItem>
 
-            <!-- Buttons -->
-            <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,0">
-                <Button Content="Save" Width="85" Margin="0,0,10,0" Click="Save_Click" Padding="8,6" Background="#4CAF50" Foreground="White" FontWeight="Bold"/>
-                <Button Content="Cancel" Width="85" Click="Cancel_Click" Padding="8,6"/>
-            </StackPanel>
-        </Grid>
-    </ScrollViewer>
+            <!-- AI Settings -->
+            <TabItem Header="AI Analysis">
+                <StackPanel Margin="15">
+                    <TextBlock Text="AI Image Analysis" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+                    <TextBlock Text="Select the AI analysis mode. Higher modes require more resources (GPU/CPU)." Margin="0,0,0,20" TextWrapping="Wrap"/>
+
+                    <RadioButton Name="rbAI_None" GroupName="AI" Content="Standard (No AI) - Minimal impact, detects basic file info." Margin="0,0,0,10"/>
+                    <RadioButton Name="rbAI_Standard" GroupName="AI" Content="Balanced (OpenCV) - Blur detection &amp; duplicate checking." Margin="0,0,0,10" IsChecked="True"/>
+                    <RadioButton Name="rbAI_Extreme" GroupName="AI" Content="Extreme (GPU) - Object detection &amp; scene classification (requires NVIDIA/DirectML GPU)." Margin="0,0,0,10"/>
+                    
+                    <Border Background="#F0F0F0" Padding="15" CornerRadius="5" Margin="0,20,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Hardware Detected:" FontWeight="Bold" Margin="0,0,0,5"/>
+                            <TextBlock Name="txtHardwareInfo" Text="Scanning hardware..." Foreground="#555"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </TabItem>
+
+            <!-- About -->
+            <TabItem Header="About">
+                <StackPanel Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Image Source="/Assets/icon.png" Width="80" Height="80" Margin="0,0,0,15"/>
+                    <TextBlock Text="Potopopi CamSync" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Name="txtVersion" Text="Version 1.3.0-dev" FontSize="14" Foreground="Gray" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                    
+                    <TextBlock Text="Author: purnadika" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                    <TextBlock HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Hyperlink NavigateUri="https://github.com/purnadika/potopopi_CamSync" RequestNavigate="Hyperlink_RequestNavigate">
+                            github.com/purnadika/potopopi_CamSync
+                        </Hyperlink>
+                    </TextBlock>
+                    
+                    <TextBlock Text="© 2026 purnadika" FontSize="11" Foreground="Gray" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="15">
+            <Button Content="Save Settings" Width="120" Click="Save_Click" Padding="10,6" Background="#4CAF50" Foreground="White" FontWeight="Bold" Margin="0,0,10,0"/>
+            <Button Content="Cancel" Width="85" Click="Cancel_Click" Padding="10,6"/>
+        </StackPanel>
+    </Grid>
 </Window>

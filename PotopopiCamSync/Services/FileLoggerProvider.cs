@@ -32,7 +32,8 @@ namespace PotopopiCamSync.Services
                 string msg = formatter(state, exception);
                 if (exception != null) msg += $"\n{exception}";
                 
-                FileLogger.Log($"[{logLevel}] [{_categoryName}] {msg}");
+                bool isDebugOnly = logLevel < LogLevel.Information;
+                FileLogger.Log($"[{logLevel}] [{_categoryName}] {msg}", isDebugOnly);
             }
         }
     }
