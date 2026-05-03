@@ -1,0 +1,73 @@
+# This workflow will build, test, and publish Potopopi CamSync (WPF)
+# built on .NET 10.
+
+name: .NET Core Desktop
+
+on:
+  push:
+    branches: [ "main", "development", "feature/**" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+
+  build:
+
+    strategy:
+      matrix:
+        configuration: [Release]
+
+    runs-on: windows-latest
+
+    env:
+      Solution_Name: PotopopiCamSync.sln
+      Project_Path: PotopopiCamSync/PotopopiCamSync.csproj
+      Test_Project_Path: PotopopiCamSync.Tests/PotopopiCamSync.Tests.csproj
+      Publish_Directory: ./publish
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Install the .NET Core workload (Targeting .NET 10)
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    # Execute all unit tests in the solution
+    - name: Execute unit tests
+      run: dotnet test $env:Test_Project_Path --configuration ${{ matrix.configuration }}
+
+    # Restore the application to populate the obj folder
+    - name: Restore the application
+      run: dotnet restore $env:Solution_Name
+
+    # Publish the application (Standalone Single File)
+    # Ini adalah pengganti langkah "Create the app package" untuk format single-exe kita
+    - name: Publish the application
+      run: |
+        dotnet publish $env:Project_Path -c ${{ matrix.configuration }} -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:IncludeNativeLibrariesForSelfExtract=true -o $env:Publish_Directory
+
+    # Upload build artifacts (Untuk disimpan di tab Actions)
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: PotopopiCamSync-Binary
+        path: ${{ env.Publish_Directory }}/PotopopiCamSync.exe
+
+    # Create GitHub Release and Upload Assets (Hanya berjalan jika ada push tag v*)
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/v')
+      with:
+        files: |
+          ${{ env.Publish_Directory }}/PotopopiCamSync.exe
+          ${{ env.Publish_Directory }}/Potopopi_CamSync_v*.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
