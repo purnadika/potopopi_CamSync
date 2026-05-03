@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -8,7 +9,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using PotopopiCamSync.Services;
+using PotopopiCamSync.Repositories;
 using PotopopiCamSync.Views;
+using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.ViewModels
 {
@@ -16,14 +19,13 @@ namespace PotopopiCamSync.ViewModels
     {
         private readonly SyncOrchestrator _orchestrator;
         private readonly DeviceMonitorService _deviceMonitor;
-        private readonly SettingsService _settingsService;
+        private readonly ISettingsRepository _settingsRepository;
         private readonly ILogger<MainViewModel> _logger;
 
         private CancellationTokenSource? _syncCts;
-        private LoadingWindow? _loadingWindow;
 
         [ObservableProperty]
-        private string _statusText = "Waiting for devices...";
+        private string _statusText = "Ready";
 
         [ObservableProperty]
         private bool _isSyncing;
@@ -34,42 +36,52 @@ namespace PotopopiCamSync.ViewModels
         [ObservableProperty]
         private bool _immichConfigured;
 
+        [ObservableProperty]
+        private bool _showAnalysisResults;
+
+        [ObservableProperty]
+        private int _blurryCount;
+
+        [ObservableProperty]
+        private int _duplicateCount;
+
+        [ObservableProperty]
+        private int _totalFound;
+
         public ObservableCollection<string> Logs { get; } = new();
         public ObservableCollection<IDeviceProvider> UnregisteredDevices { get; } = new();
         public ObservableCollection<IDeviceProvider> ActiveDevices { get; } = new();
+        public ObservableCollection<FlaggedFile> FlaggedFiles { get; } = new();
 
-        public MainViewModel(SyncOrchestrator orchestrator, DeviceMonitorService deviceMonitor, SettingsService settingsService, ILogger<MainViewModel> logger)
+        public MainViewModel(SyncOrchestrator orchestrator, DeviceMonitorService deviceMonitor, ISettingsRepository settingsRepository, ILogger<MainViewModel> logger)
         {
             _orchestrator = orchestrator;
             _deviceMonitor = deviceMonitor;
-            _settingsService = settingsService;
+            _settingsRepository = settingsRepository;
             _logger = logger;
 
             _orchestrator.OnSyncProgress += OnSyncProgress;
             _orchestrator.OnSyncCompleted += OnSyncCompleted;
             _orchestrator.OnMetricsUpdated += OnMetricsUpdated;
+            _orchestrator.OnAIResultFound += OnAIResultFound;
             _deviceMonitor.OnDeviceConnected += OnDeviceConnected;
 
             _deviceMonitor.Start();
-
             RefreshImmichStatus();
         }
 
         public void RefreshImmichStatus()
         {
-            var c = _settingsService.Config;
-            ImmichConfigured = c.EnableImmichSync &&
-                               !string.IsNullOrEmpty(c.ImmichUrl) &&
-                               !string.IsNullOrEmpty(c.ImmichApiKey) &&
-                               !string.IsNullOrEmpty(c.LocalBackupFolder);
+            var c = _settingsRepository.Config;
+            ImmichConfigured = c.EnableImmichSync && (!string.IsNullOrEmpty(c.ImmichUrl) || c.ImmichAccounts.Any());
         }
-
-        // ── Commands ────────────────────────────────────────────────────────────
 
         [RelayCommand]
         private void ManualSync(IDeviceProvider device)
         {
             if (device == null || IsSyncing) return;
+            ShowAnalysisResults = false;
+            FlaggedFiles.Clear();
             StartSync(() => _orchestrator.StartSyncAsync(device, GetNewToken()));
         }
 
@@ -77,22 +89,13 @@ namespace PotopopiCamSync.ViewModels
         private void RegisterDevice(IDeviceProvider device)
         {
             if (device == null) return;
-
-            var signature = new Models.DeviceSignature
-            {
-                Id = device.DeviceId,
-                Name = device.DeviceName,
-                Type = device is MtpDeviceProvider ? "Mtp" : "SdCard"
-            };
-
-            _settingsService.Config.RegisteredDevices.Add(signature);
-            _settingsService.SaveConfig();
-
+            var signature = new DeviceSignature { Id = device.DeviceId, Name = device.DeviceName, Type = device is MtpDeviceProvider ? "Mtp" : "SdCard" };
+            _settingsRepository.Config.RegisteredDevices.Add(signature);
+            _settingsRepository.SaveConfig();
             UnregisteredDevices.Remove(device);
             ActiveDevices.Add(device);
-            Log($"Registered device: {device.DeviceName}. Starting sync...");
-
-            StartSync(() => _orchestrator.StartSyncAsync(device, GetNewToken()));
+            Log($"Registered: {device.DeviceName}. Starting sync...");
+            ManualSync(device);
         }
 
         [RelayCommand]
@@ -105,45 +108,32 @@ namespace PotopopiCamSync.ViewModels
         [RelayCommand]
         private void OpenLocalFolder()
         {
-            var folder = _settingsService.Config.LocalBackupFolder;
-            if (string.IsNullOrWhiteSpace(folder))
-            {
-                Log("Local Backup Folder is not configured.");
-                return;
-            }
-
-            if (!Directory.Exists(folder))
-            {
-                Log($"Folder does not exist: {folder}");
-                return;
-            }
-
-            try
-            {
-                System.Diagnostics.Process.Start("explorer.exe", folder);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to open folder: {Folder}", folder);
-                Log($"Failed to open folder: {ex.Message}");
-            }
+            var folder = _settingsRepository.Config.LocalBackupFolder;
+            if (string.IsNullOrWhiteSpace(folder)) { Log("Local Folder not set."); return; }
+            if (!Directory.Exists(folder)) { Log("Folder not found."); return; }
+            try { System.Diagnostics.Process.Start("explorer.exe", folder); }
+            catch (Exception ex) { Log($"Explorer error: {ex.Message}"); }
         }
 
         [RelayCommand]
-        private void CancelSync()
+        private void ReviewAIResults()
         {
-            _syncCts?.Cancel();
+            var window = new AIReviewWindow { DataContext = this };
+            window.ShowDialog();
         }
 
-        // ── Helpers ─────────────────────────────────────────────────────────────
+        [RelayCommand]
+        private void CancelSync() => _syncCts?.Cancel();
 
-        private void StartSync(Func<System.Threading.Tasks.Task> syncAction)
+        private void StartSync(Func<Task> syncAction)
         {
             SyncProgressPercentage = 0;
             IsSyncing = true;
-            _ = syncAction().ContinueWith(_ =>
-            {
-                System.Windows.Application.Current.Dispatcher.Invoke(() => IsSyncing = false);
+            _ = syncAction().ContinueWith(t => {
+                System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                    IsSyncing = false;
+                    if (t.IsFaulted) Log($"Sync error: {t.Exception?.InnerException?.Message}");
+                });
             });
         }
 
@@ -156,76 +146,49 @@ namespace PotopopiCamSync.ViewModels
 
         private void OnDeviceConnected(IDeviceProvider device)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
-                bool isRegistered = _settingsService.Config.RegisteredDevices.Exists(d =>
-                    string.Equals(d.Id, device.DeviceId, StringComparison.OrdinalIgnoreCase));
-
+            System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                bool isRegistered = _settingsRepository.Config.RegisteredDevices.Any(d => d.Id == device.DeviceId);
                 if (isRegistered)
                 {
-                    bool exists = false;
-                    foreach (var d in ActiveDevices)
-                        if (string.Equals(d.DeviceId, device.DeviceId, StringComparison.OrdinalIgnoreCase)) exists = true;
-                    if (!exists) ActiveDevices.Add(device);
-
-                    Log($"Detected registered device: {device.DeviceName}. Preparing sync...");
-
-                    // Show loading screen
-                    _loadingWindow = new LoadingWindow();
-                    _loadingWindow.UpdateStatus($"Connecting to {device.DeviceName}...", "Checking device data...");
-                    _loadingWindow.Show();
-
-                    // Run sync in background thread
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            _loadingWindow.UpdateStatus($"Syncing {device.DeviceName}...", "Scanning files...");
-                            await _orchestrator.StartSyncAsync(device, GetNewToken());
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError($"Sync error: {ex.Message}");
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                                Log($"Sync error: {ex.Message}"));
-                        }
-                        finally
-                        {
-                            _loadingWindow?.Close();
-                        }
-                    });
+                    if (!ActiveDevices.Any(d => d.DeviceId == device.DeviceId)) ActiveDevices.Add(device);
+                    Log($"Registered device {device.DeviceName} detected. Auto-syncing...");
+                    ManualSync(device);
                 }
                 else
                 {
-                    Log($"Detected unregistered device: {device.DeviceName}. Available for registration.");
-                    bool exists = false;
-                    foreach (var d in UnregisteredDevices)
-                        if (string.Equals(d.DeviceId, device.DeviceId, StringComparison.OrdinalIgnoreCase)) exists = true;
-                    if (!exists) UnregisteredDevices.Add(device);
+                    if (!UnregisteredDevices.Any(d => d.DeviceId == device.DeviceId)) UnregisteredDevices.Add(device);
                 }
             });
         }
 
-        private void OnMetricsUpdated(Models.SyncMetrics metrics)
+        private void OnAIResultFound(string path, string reason, bool isBlurry)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
+            System.Windows.Application.Current.Dispatcher.Invoke(() => {
+                FlaggedFiles.Add(new FlaggedFile { Path = path, Reason = reason, IsBlurry = isBlurry });
+            });
+        }
+
+        private void OnMetricsUpdated(SyncMetrics metrics)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() => {
                 if (metrics.TotalFiles > 0)
                 {
-                    // Calculate progress based on both stages (Download + Upload)
-                    // Total steps = TotalFiles * 2
-                    // Completed steps = DownloadedFiles + UploadedFiles
-                    double totalSteps = metrics.TotalFiles * 2;
-                    double completedSteps = metrics.DownloadedFiles + metrics.UploadedFiles;
-                    SyncProgressPercentage = (completedSteps / totalSteps) * 100;
+                    double total = metrics.TotalFiles * 2;
+                    double done = metrics.DownloadedFiles + metrics.UploadedFiles;
+                    SyncProgressPercentage = (done / total) * 100;
+                    TotalFound = metrics.TotalFiles;
+                    BlurryCount = metrics.BlurryFiles;
+                    DuplicateCount = metrics.DuplicateFiles;
+                    
+                    if (BlurryCount > 0 || DuplicateCount > 0)
+                        ShowAnalysisResults = true;
                 }
             });
         }
 
         private void OnSyncProgress(string message)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
+            System.Windows.Application.Current.Dispatcher.Invoke(() => {
                 StatusText = message;
                 Log(message);
             });
@@ -233,11 +196,11 @@ namespace PotopopiCamSync.ViewModels
 
         private void OnSyncCompleted(string deviceId)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
+            System.Windows.Application.Current.Dispatcher.Invoke(() => {
                 IsSyncing = false;
-                StatusText = "Sync completed. Waiting for devices...";
-                Log($"Sync completed for device: {deviceId}");
+                StatusText = "Done. Ready for next device.";
+                Log($"Sync completed: {deviceId}");
+                App.ShowTrayNotification("Sync Complete", $"Successfully synced device {deviceId}");
             });
         }
 
@@ -245,8 +208,16 @@ namespace PotopopiCamSync.ViewModels
         {
             string entry = $"[{DateTime.Now:HH:mm:ss}] {message}";
             Logs.Insert(0, entry);
-            if (Logs.Count > 200) Logs.RemoveAt(200);
+            if (Logs.Count > 100) Logs.RemoveAt(100);
             _logger.LogInformation(message);
         }
+    }
+
+    public class FlaggedFile
+    {
+        public string Path { get; set; } = string.Empty;
+        public string FileName => System.IO.Path.GetFileName(Path);
+        public string Reason { get; set; } = string.Empty;
+        public bool IsBlurry { get; set; }
     }
 }

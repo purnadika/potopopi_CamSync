@@ -1,77 +1,46 @@
-# Potopopi CamSync 📸🚀
+# 📸 Potopopi CamSync
 
-Potopopi CamSync is a high-performance, memory-efficient C# .NET 10 WPF application designed for photographers who need to automate their workflow. It monitors device connections (MTP Cameras or SD Cards) and seamlessly syncs media to a local backup and/or an [Immich](https://immich.app/) server.
+**Potopopi CamSync** is a professional-grade media synchronization tool designed for photographers and enthusiasts. It bridges the gap between your camera (SD Cards, MTP devices) and [Immich](https://immich.app/), providing a seamless, automated, and AI-powered backup workflow.
 
-Built with a **Two-Stage Sync Pipeline**, it is specifically engineered to handle large RAW files and 4K videos without crashing or consuming excessive system memory.
+![Version](https://img.shields.io/badge/version-1.3.0--dev-orange)
+![Platform](https://img.shields.io/badge/platform-windows-blue)
 
 ## ✨ Key Features
 
-- **🚀 Two-Stage Sync Pipeline**: Files are first downloaded to a local staging area and then streamed directly to Immich. This ensures zero-RAM buffering and maximum reliability.
-- **🔌 Plug-and-Play Detection**: Uses WMI events to instantly recognize registered cameras (via MTP) or SD cards the moment they are connected.
-- **☁️ Immich Integration**: Native support for Immich's asset API, preserving original EXIF, GPS, and metadata.
-- **🛡️ Robust MTP Engine**: Iterative folder traversal ensures the app never crashes even on cameras with thousands of deeply nested folders.
-- **🛑 Full Cancellation Support**: Long-running syncs can be stopped at any moment with the click of a button.
-- **🔄 Local → Immich Sync**: A dedicated manual feature to push your local backup library to Immich at any time.
-- **📁 Smart Organization**: Automatically organizes your local backups into clean `yyyy-MM-dd` date-based folder structures.
-- **🧠 Smart Duplicate Handling**: Safely skip uploads if the file already exists on Immich, making it safe to run multiple laptops syncing the same camera without duplicating files or wasting bandwidth.
-- **🌐 Network Resilience**: Built-in exponential backoff retry policies for network failures during Immich uploads.
-- **💉 Dependency Injection**: Modern architecture using `Microsoft.Extensions.Hosting` for better maintainability and testability.
-- **📜 Structured Logging**: Comprehensive logging to `app.log` for easy troubleshooting, including detailed conflict/duplicate tracking.
+- **🚀 Smart Scanning**: Incremental sync logic that only processes new files since your last backup.
+- **🤖 AI Image Analysis**:
+  - **Blur Detection**: Automatically identifies out-of-focus shots using Laplacian variance.
+  - **Deduplication**: Uses perceptual hashing (pHash) to find near-identical burst shots.
+  - **Hardware Aware**: Leverages NVIDIA GPUs (CUDA) or DirectML for high-performance AI tasks.
+- **📱 Multi-Device Profiles**: Individual settings (Local folder, Immich account, Album) for every SD card or camera.
+- **☁️ Immich Integration**: Parallel upload pipeline with bandwidth throttling and robust retry policies.
+- **🛠️ Dual Logging**: High-level `app.log` for status and verbose `app.debug.log` for deep troubleshooting.
 
 ## 🛠️ Technology Stack
 
 - **Framework**: .NET 10 (WPF)
-- **Architecture**: MVVM with `CommunityToolkit.Mvvm`
-- **DI Container**: `Microsoft.Extensions.Hosting`
-- **Logging**: `Microsoft.Extensions.Logging` with custom File Provider
-- **MTP Communication**: `MediaDevices` (Windows Portable Devices API)
-- **Testing**: xUnit with `Moq` for unit testing the sync logic
+- **AI/ML**: ONNX Runtime (DirectML/CUDA), OpenCV (OpenCvSharp4)
+- **Reliability**: Polly (Exponential Backoff), Microsoft Extensions Hosting
+- **UI/UX**: CommunityToolkit.Mvvm, Modern WPF Aesthetics
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Windows 10/11
-- .NET 10 SDK
+- .NET 10 Runtime
 
-### Option A: Pre-built Release (Recommended)
-Download the latest `PotopopiCamSync.exe` from the [GitHub Releases](../../releases). 
-It is a single, lightweight executable (~3.6MB) that automatically prompts you to install the .NET 10 Desktop Runtime if you don't already have it.
+### Installation
+1. Download the latest `Potopopi_CamSync_v1.3.0-dev.exe` from the Releases.
+2. Run the executable.
+3. Follow the **Setup Wizard** to configure your local backup folder and Immich credentials.
 
-### Option B: Build from Source
-1. **Clone the repository**:
-   ```powershell
-   git clone <repository_url>
-   cd CameraSync
-   ```
+### Development
+1. Clone the repository.
+2. Open `PotopopiCamSync.sln` in Visual Studio 2022 or VS Code.
+3. Build in `Release` mode to generate the versioned executable.
 
-2. **Build and Run**:
-   ```powershell
-   dotnet run --project PotopopiCamSync
-   ```
-
-3. **Run Tests**:
-   ```powershell
-   dotnet test
-   ```
-
-### First-Time Setup
-On the first launch, a **Setup Wizard** will guide you through:
-1. Configuring your **Local Backup Folder** (Mandatory).
-2. Setting up your **Immich URL** and **API Key** (Optional).
-3. Assigning friendly names to your detected devices.
-
-## 🧪 Testing
-The project includes a dedicated test suite `PotopopiCamSync.Tests` covering:
-- iterative MTP and SD Card scanning logic.
-- The two-stage orchestration pipeline.
-- Local folder organization and duplicate skipping.
-- Immich API communication mocking.
-
-## 🗺️ Roadmap
-- [ ] **Smart Auto-Cleanup (Immich-Verified)**: The current app only deletes files from the SD card after *local* download. This upcoming feature will wait and delete them ONLY after they are successfully verified and uploaded to Immich.
-- [ ] **Exclusion Filters**: Skip specific file types like RAW (`*.CR2`, `*.CR3`) or cache files (`*.TEMP`).
-- [ ] **Parallel Processing**: Allowing Stage 2 uploads while Stage 1 downloads are still in progress.
-- [ ] **Albums Support**: Automatically group uploaded files into specific Immich Albums.
+## 🤝 Author
+Created with ❤️ by **purnadika** ([purnadika@proton.me](mailto:purnadika@proton.me))
 
 ## 📄 License
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is for personal use and study. See the repository for details.

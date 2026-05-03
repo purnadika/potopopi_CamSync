@@ -10,8 +10,18 @@
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
+    <Version>1.3.0-dev</Version>
   </PropertyGroup>
+
+  <Target Name="RenameExe" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Copy SourceFiles="$(TargetDir)$(TargetName).exe" DestinationFiles="$(TargetDir)Potopopi_CamSync_v$(Version).exe" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="RenamePublishExe" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <Copy SourceFiles="$(PublishDir)$(TargetName).exe" DestinationFiles="$(PublishDir)Potopopi_CamSync_v$(Version).exe" SkipUnchangedFiles="true" />
+  </Target>
+
+
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
@@ -19,7 +29,9 @@
     <PackageReference Include="MediaDevices" Version="1.10.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="OpenCvSharp4.Windows" Version="4.13.0.20260302" />
     <PackageReference Include="Polly" Version="8.4.1" />
     <PackageReference Include="System.Management" Version="10.0.7" />
   </ItemGroup>

@@ -3,9 +3,9 @@ using System.IO;
 using Newtonsoft.Json;
 using PotopopiCamSync.Models;
 
-namespace PotopopiCamSync.Services
+namespace PotopopiCamSync.Repositories
 {
-    public class SettingsService
+    public class JsonSettingsRepository : ISettingsRepository
     {
         private readonly string _configFilePath;
         private readonly string _stateFilePath;
@@ -13,7 +13,7 @@ namespace PotopopiCamSync.Services
         public AppConfig Config { get; private set; } = null!;
         public SyncState State { get; private set; } = null!;
 
-        public SettingsService(string? customBasePath = null)
+        public JsonSettingsRepository(string? customBasePath = null)
         {
             string appData = customBasePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PotopopiCamSync");
             if (!Directory.Exists(appData))
