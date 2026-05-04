@@ -45,8 +45,29 @@ jobs:
       run: dotnet restore $env:Solution_Name
 
     - name: Publish the application
+      shell: pwsh
       run: |
-        dotnet publish $env:Project_Path -c ${{ matrix.configuration }} -r win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:IncludeNativeLibrariesForSelfExtract=true -o $env:Publish_Directory
+        [xml]$csproj = Get-Content $env:Project_Path
+        $baseVersion = $csproj.Project.PropertyGroup.Version
+        
+        $suffix = ""
+        if ("${{ github.ref }}" -eq "refs/heads/development") {
+          $suffix = "-dev"
+          Write-Host "Branch is development, applying -dev suffix"
+        }
+        
+        $finalVersion = "$baseVersion$suffix"
+        Write-Host "Building version: $finalVersion"
+        
+        dotnet publish $env:Project_Path `
+          -c ${{ matrix.configuration }} `
+          -r win-x64 `
+          --self-contained false `
+          -p:PublishSingleFile=true `
+          -p:PublishReadyToRun=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:Version=$finalVersion `
+          -o $env:Publish_Directory
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
