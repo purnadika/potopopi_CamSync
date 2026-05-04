@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using System.IO;
 using Microsoft.Extensions.Logging;
+using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
 {
@@ -13,11 +14,29 @@ namespace PotopopiCamSync.Services
         private ManagementEventWatcher? _volumeWatcher;
         private readonly ILogger<DeviceMonitorService> _logger;
         
+
         public event Action<IDeviceProvider>? OnDeviceConnected;
 
         public DeviceMonitorService(ILogger<DeviceMonitorService> logger)
         {
             _logger = logger;
+        }
+
+        private bool IsMtpDevice(string? name, string? description)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+
+            if (DeviceConstants.ExcludeKeywords.Any(exclude => 
+                name.Contains(exclude, StringComparison.OrdinalIgnoreCase) || 
+                (description != null && description.Contains(exclude, StringComparison.OrdinalIgnoreCase))))
+            {
+                return false;
+            }
+
+            return DeviceConstants.MtpKeywords.Any(keyword => 
+                name.Contains(keyword, StringComparison.OrdinalIgnoreCase) || 
+                (description != null && description.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+            );
         }
 
         public void Start()
@@ -35,6 +54,8 @@ namespace PotopopiCamSync.Services
                 _volumeWatcher = new ManagementEventWatcher(volumeQuery);
                 _volumeWatcher.EventArrived += VolumeInsertedEvent;
                 _volumeWatcher.Start();
+                // Scan for already connected devices
+                Task.Run(() => ScanExistingDevices());
             }
             catch (Exception ex)
             {
@@ -42,45 +63,75 @@ namespace PotopopiCamSync.Services
             }
         }
 
+        private void ScanExistingDevices()
+        {
+            try
+            {
+                // Scan Logical Disks (SD Cards)
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_LogicalDisk WHERE DriveType = 2 OR DriveType = 3"))
+                {
+                    foreach (var device in searcher.Get())
+                    {
+                        var disk = WmiLogicalDiskModel.FromManagementObject(device);
+
+                        if (!string.IsNullOrEmpty(disk.DriveLetter) && !string.IsNullOrEmpty(disk.VolumeSerialNumber))
+                        {
+                            string drivePath = disk.DriveLetter + "\\";
+                            if (Directory.Exists(Path.Combine(drivePath, "DCIM")))
+                            {
+                                var provider = new SdCardDeviceProvider(disk.VolumeSerialNumber, disk.VolumeName ?? "SD Card", drivePath);
+                                OnDeviceConnected?.Invoke(provider);
+                            }
+                        }
+                    }
+                }
+
+                // Scan PnP Entities (MTP Cameras)
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PnPEntity"))
+                {
+                    foreach (var device in searcher.Get())
+                    {
+                        var pnp = WmiPnpDeviceModel.FromManagementObject(device);
+
+                        if (!string.IsNullOrEmpty(pnp.DeviceId) && IsMtpDevice(pnp.Name, pnp.Description))
+                        {
+                            var provider = new MtpDeviceProvider(pnp.DeviceId, pnp.Name!);
+                            OnDeviceConnected?.Invoke(provider);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to scan existing devices on startup.");
+            }
+        }
+
         private void DeviceInsertedEvent(object sender, EventArrivedEventArgs e)
         {
             var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
-            string? deviceId = instance["PNPDeviceID"]?.ToString();
-            string? name = instance["Name"]?.ToString();
-            string? description = instance["Description"]?.ToString();
+            var pnp = WmiPnpDeviceModel.FromManagementObject(instance);
 
-            // MTP devices often have "Portable Device" or "MTP" or "Digital Still Camera" in description or service
-            if (!string.IsNullOrEmpty(deviceId) && !string.IsNullOrEmpty(name))
+            if (!string.IsNullOrEmpty(pnp.DeviceId) && IsMtpDevice(pnp.Name, pnp.Description))
             {
-                if (name.Contains("camera", StringComparison.OrdinalIgnoreCase) || 
-                    (description is not null && description.Contains("camera", StringComparison.OrdinalIgnoreCase)) || 
-                    name.Contains("eos", StringComparison.OrdinalIgnoreCase) || 
-                    name.Contains("gopro", StringComparison.OrdinalIgnoreCase) || 
-                    name.Contains("hero", StringComparison.OrdinalIgnoreCase) || 
-                    name.Contains("portable device", StringComparison.OrdinalIgnoreCase) || 
-                    (description is not null && description.Contains("portable device", StringComparison.OrdinalIgnoreCase)))
-                {
-                    var provider = new MtpDeviceProvider(deviceId, name);
-                    OnDeviceConnected?.Invoke(provider);
-                }
+                var provider = new MtpDeviceProvider(pnp.DeviceId, pnp.Name!);
+                OnDeviceConnected?.Invoke(provider);
             }
         }
 
         private void VolumeInsertedEvent(object sender, EventArrivedEventArgs e)
         {
             var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
-            string? driveLetter = instance["DeviceID"]?.ToString(); // e.g. E:
-            string? volumeSerialNumber = instance["VolumeSerialNumber"]?.ToString();
-            string? volumeName = instance["VolumeName"]?.ToString();
+            var disk = WmiLogicalDiskModel.FromManagementObject(instance);
 
-            if (!string.IsNullOrEmpty(driveLetter) && !string.IsNullOrEmpty(volumeSerialNumber))
+            if (!string.IsNullOrEmpty(disk.DriveLetter) && !string.IsNullOrEmpty(disk.VolumeSerialNumber))
             {
-                string drivePath = driveLetter + "\\";
+                string drivePath = disk.DriveLetter + "\\";
                 // Only consider it if it might be an SD card with a DCIM folder, or we just notify
                 // and let the Orchestrator decide based on registered devices.
                 if (Directory.Exists(Path.Combine(drivePath, "DCIM")))
                 {
-                    var provider = new SdCardDeviceProvider(volumeSerialNumber, volumeName ?? "SD Card", drivePath);
+                    var provider = new SdCardDeviceProvider(disk.VolumeSerialNumber, disk.VolumeName ?? "SD Card", drivePath);
                     OnDeviceConnected?.Invoke(provider);
                 }
             }

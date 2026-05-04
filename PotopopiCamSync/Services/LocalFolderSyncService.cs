@@ -7,12 +7,12 @@ using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
 {
-    public class LocalFolderSync : ISyncDestination
+    public class LocalFolderSyncService : ISyncDestination
     {
         private readonly string _targetFolder;
-        private readonly ILogger<LocalFolderSync> _logger;
+        private readonly ILogger<LocalFolderSyncService> _logger;
 
-        public LocalFolderSync(string targetFolder, ILogger<LocalFolderSync> logger)
+        public LocalFolderSyncService(string targetFolder, ILogger<LocalFolderSyncService> logger)
         {
             _targetFolder = targetFolder;
             _logger = logger;
@@ -22,7 +22,7 @@ namespace PotopopiCamSync.Services
         /// Copies a file from localFilePath into the local backup folder structure (yyyy-MM-dd\filename).
         /// Returns the destination file path on success so the orchestrator can use it for further uploads.
         /// </summary>
-        public async Task<bool> UploadAsync(SyncFile file, string localFilePath, CancellationToken cancellationToken = default)
+        public async Task<bool> UploadAsync(SyncFileModel file, string localFilePath, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -60,7 +60,7 @@ namespace PotopopiCamSync.Services
         /// <summary>
         /// Returns the expected local backup path for a given file, regardless of whether it exists yet.
         /// </summary>
-        public string GetLocalBackupPath(SyncFile file)
+        public string GetLocalBackupPath(SyncFileModel file)
         {
             string dateFolder = file.CreationTime.ToString("yyyy-MM-dd");
             return Path.Combine(_targetFolder, dateFolder, file.FileName);

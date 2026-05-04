@@ -1,6 +1,7 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PotopopiCamSync.Services;
+using PotopopiCamSync.Repositories;
 using PotopopiCamSync.ViewModels;
 
 namespace PotopopiCamSync.Views
@@ -14,7 +15,7 @@ namespace PotopopiCamSync.Views
 
         private void Skip_Click(object sender, RoutedEventArgs e)
         {
-            var settings = App.ServiceProvider.GetRequiredService<SettingsService>();
+            var settings = App.ServiceProvider.GetRequiredService<ISettingsRepository>();
             settings.Config.FirstRunCompleted = true;
             settings.SaveConfig();
 
@@ -26,7 +27,7 @@ namespace PotopopiCamSync.Views
             var settingsWindow = new SettingsWindow();
             settingsWindow.ShowDialog();
 
-            var settings = App.ServiceProvider.GetRequiredService<SettingsService>();
+            var settings = App.ServiceProvider.GetRequiredService<ISettingsRepository>();
             settings.Config.FirstRunCompleted = true;
             settings.SaveConfig();
 

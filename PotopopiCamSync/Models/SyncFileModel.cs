@@ -3,7 +3,7 @@ using System.IO;
 
 namespace PotopopiCamSync.Models
 {
-    public class SyncFile
+    public class SyncFileModel
     {
         public string RelativePath { get; set; } = string.Empty;
         public string OriginalPath { get; set; } = string.Empty;

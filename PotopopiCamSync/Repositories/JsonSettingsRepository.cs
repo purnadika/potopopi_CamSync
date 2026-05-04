@@ -3,17 +3,17 @@ using System.IO;
 using Newtonsoft.Json;
 using PotopopiCamSync.Models;
 
-namespace PotopopiCamSync.Services
+namespace PotopopiCamSync.Repositories
 {
-    public class SettingsService
+    public class JsonSettingsRepository : ISettingsRepository
     {
         private readonly string _configFilePath;
         private readonly string _stateFilePath;
 
-        public AppConfig Config { get; private set; } = null!;
-        public SyncState State { get; private set; } = null!;
+        public AppConfigModel Config { get; private set; } = null!;
+        public SyncStateModel State { get; private set; } = null!;
 
-        public SettingsService(string? customBasePath = null)
+        public JsonSettingsRepository(string? customBasePath = null)
         {
             string appData = customBasePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PotopopiCamSync");
             if (!Directory.Exists(appData))
@@ -32,21 +32,21 @@ namespace PotopopiCamSync.Services
             if (File.Exists(_configFilePath))
             {
                 string json = File.ReadAllText(_configFilePath);
-                Config = JsonConvert.DeserializeObject<AppConfig>(json) ?? new AppConfig();
+                Config = JsonConvert.DeserializeObject<AppConfigModel>(json) ?? new AppConfigModel();
             }
             else
             {
-                Config = new AppConfig();
+                Config = new AppConfigModel();
             }
 
             if (File.Exists(_stateFilePath))
             {
                 string json = File.ReadAllText(_stateFilePath);
-                State = JsonConvert.DeserializeObject<SyncState>(json) ?? new SyncState();
+                State = JsonConvert.DeserializeObject<SyncStateModel>(json) ?? new SyncStateModel();
             }
             else
             {
-                State = new SyncState();
+                State = new SyncStateModel();
             }
         }
 

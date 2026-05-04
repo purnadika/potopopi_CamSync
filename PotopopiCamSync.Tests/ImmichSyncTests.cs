@@ -11,20 +11,20 @@ using PotopopiCamSync.Services;
 namespace PotopopiCamSync.Tests;
 
 /// <summary>
-/// Tests for ImmichSync.
+/// Tests for ImmichSyncService.
 /// Uses a fake HttpMessageHandler to avoid real network calls.
 /// </summary>
 public class ImmichSyncTests : IDisposable
 {
     private readonly string _tempFile;
-    private readonly SyncFile _syncFile;
+    private readonly SyncFileModel _syncFile;
 
     public ImmichSyncTests()
     {
         _tempFile = Path.GetTempFileName() + ".jpg";
         File.WriteAllText(_tempFile, "FAKE JPEG DATA");
 
-        _syncFile = new SyncFile
+        _syncFile = new SyncFileModel
         {
             FileName = "IMG_001.jpg",
             OriginalPath = _tempFile,
@@ -34,14 +34,14 @@ public class ImmichSyncTests : IDisposable
         };
     }
 
-    private ImmichSync MakeSyncWithHandler(HttpStatusCode statusCode)
+    private ImmichSyncService MakeSyncWithHandler(HttpStatusCode statusCode)
     {
         var handler = new FakeHttpHandler(statusCode);
-        // We must inject via an internal helper — but ImmichSync uses a static HttpClient.
+        // We must inject via an internal helper — but ImmichSyncService uses a static HttpClient.
         // We'll test the logic by creating a subclass-friendly version using the public constructor
         // and verifying behavior. For full HttpClient mocking we use a custom handler factory.
-        return new ImmichSync("http://immich.local", "api-key-123", "dev-001",
-            NullLogger<ImmichSync>.Instance, handler);
+        return new ImmichSyncService("http://immich.local", "api-key-123", "dev-001",
+            NullLogger<ImmichSyncService>.Instance, handler);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class ImmichSyncTests : IDisposable
     [Fact]
     public async Task UploadAsync_Returns_False_When_Immich_Not_Configured()
     {
-        var sync = new ImmichSync("", "", "dev-001", NullLogger<ImmichSync>.Instance);
+        var sync = new ImmichSyncService("", "", "dev-001", NullLogger<ImmichSyncService>.Instance);
         bool result = await sync.UploadAsync(_syncFile, _tempFile);
         Assert.False(result);
     }
@@ -102,7 +102,7 @@ public class ImmichSyncTests : IDisposable
         if (File.Exists(_tempFile)) File.Delete(_tempFile);
     }
 
-    /// <summary>Fake HttpMessageHandler for testing ImmichSync without network.</summary>
+    /// <summary>Fake HttpMessageHandler for testing ImmichSyncService without network.</summary>
     private class FakeHttpHandler : HttpMessageHandler
     {
         private readonly HttpStatusCode _statusCode;

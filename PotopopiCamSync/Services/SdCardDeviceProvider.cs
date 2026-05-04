@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using PotopopiCamSync.Models;
+using PotopopiCamSync.Utilities;
 
 namespace PotopopiCamSync.Services
 {
@@ -13,12 +14,10 @@ namespace PotopopiCamSync.Services
 
         public string DeviceId { get; private set; }
         public string DeviceName { get; private set; }
+        public string DisplayName => $"{DeviceName} ({DeviceId})";
         public bool IsConnected => Directory.Exists(_drivePath);
 
-        private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".jpg", ".jpeg", ".cr2", ".cr3", ".nef", ".arw", ".dng", ".mp4", ".mov", ".avi"
-        };
+
 
         public SdCardDeviceProvider(string deviceId, string deviceName, string drivePath)
         {
@@ -31,11 +30,11 @@ namespace PotopopiCamSync.Services
 
         public void Disconnect() { }
 
-        public Task<List<SyncFile>> GetFilesAsync(CancellationToken cancellationToken = default)
+        public Task<List<SyncFileModel>> GetFilesAsync(CancellationToken cancellationToken = default, System.Action<string>? progressCallback = null)
         {
             return Task.Run(() =>
             {
-                var files = new List<SyncFile>();
+                var files = new List<SyncFileModel>();
                 if (!IsConnected) return files;
 
                 string dcimPath = Path.Combine(_drivePath, "DCIM");
@@ -52,16 +51,17 @@ namespace PotopopiCamSync.Services
 
                     try
                     {
+                        progressCallback?.Invoke($"Scanning folder: {new DirectoryInfo(current).Name}");
+
                         foreach (var dir in Directory.GetDirectories(current))
                             stack.Push(dir);
 
                         foreach (var filePath in Directory.GetFiles(current))
                         {
-                            string ext = Path.GetExtension(filePath);
-                            if (!SupportedExtensions.Contains(ext)) continue;
+                            if (!FileUtilities.IsSupportedMedia(filePath)) continue;
 
                             var info = new FileInfo(filePath);
-                            files.Add(new SyncFile
+                            files.Add(new SyncFileModel
                             {
                                 OriginalPath = filePath,
                                 RelativePath = filePath.Substring(dcimPath.Length).TrimStart('\\', '/'),
@@ -78,7 +78,7 @@ namespace PotopopiCamSync.Services
             }, cancellationToken);
         }
 
-        public Task DownloadToStreamAsync(SyncFile file, Stream destination, CancellationToken cancellationToken = default)
+        public Task DownloadToStreamAsync(SyncFileModel file, Stream destination, CancellationToken cancellationToken = default)
         {
             return Task.Run(async () =>
             {
@@ -87,7 +87,7 @@ namespace PotopopiCamSync.Services
             }, cancellationToken);
         }
 
-        public Task DeleteFileAsync(SyncFile file, CancellationToken cancellationToken = default)
+        public Task DeleteFileAsync(SyncFileModel file, CancellationToken cancellationToken = default)
         {
             return Task.Run(() =>
             {

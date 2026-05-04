@@ -1,0 +1,99 @@
+name: .NET Core Desktop
+
+on:
+  push:
+    branches: [ "main", "development" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  # Opt-in to Node.js 24 to remove deprecation warnings
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        configuration: [Release]
+
+    runs-on: windows-latest
+
+    env:
+      Solution_Name: PotopopiCamSync.sln
+      Project_Path: PotopopiCamSync/PotopopiCamSync.csproj
+      Test_Project_Path: PotopopiCamSync.Tests/PotopopiCamSync.Tests.csproj
+      Publish_Directory: ./publish
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Execute unit tests
+      run: dotnet test $env:Test_Project_Path --configuration ${{ matrix.configuration }}
+
+    - name: Restore
+      run: dotnet restore $env:Solution_Name
+
+    - name: Publish the application
+      shell: pwsh
+      run: |
+        [xml]$csproj = Get-Content $env:Project_Path
+        $baseVersion = $csproj.Project.PropertyGroup.Version
+        
+        $suffix = ""
+        if ("${{ github.ref }}" -eq "refs/heads/development") {
+          $suffix = "-dev"
+          Write-Host "Branch is development, applying -dev suffix"
+        }
+        
+        $finalVersion = "$baseVersion$suffix"
+        Write-Host "Building version: $finalVersion"
+        
+        dotnet publish $env:Project_Path `
+          -c ${{ matrix.configuration }} `
+          -r win-x64 `
+          --self-contained false `
+          -p:PublishSingleFile=true `
+          -p:PublishReadyToRun=true `
+          -p:IncludeNativeLibrariesForSelfExtract=false `
+          -p:Version=$finalVersion `
+          -o $env:Publish_Directory
+
+    - name: Package AI Dependencies
+      shell: pwsh
+      run: |
+        $dlls = Get-ChildItem -Path $env:Publish_Directory -Filter *.dll
+        if ($dlls.Count -gt 0) {
+          Compress-Archive -Path $dlls.FullName -DestinationPath "$env:Publish_Directory/AI_Dependencies.zip"
+          Remove-Item $dlls.FullName
+          Write-Host "Zipped $($dlls.Count) native DLLs into AI_Dependencies.zip"
+        }
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: PotopopiCamSync_Build
+        path: |
+          ${{ env.Publish_Directory }}/PotopopiCamSync_*.exe
+          ${{ env.Publish_Directory }}/AI_Dependencies.zip
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/v')
+      with:
+        generate_release_notes: true
+        files: |
+          ${{ env.Publish_Directory }}/PotopopiCamSync_*.exe
+          ${{ env.Publish_Directory }}/AI_Dependencies.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
