@@ -1,39 +1,63 @@
-name: Build and Release
+name: .NET Core Desktop
 
 on:
   push:
+    branches: [ "main", "development" ]
     tags:
       - 'v*'
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
+
+env:
+  # Opt-in to Node.js 24 to remove deprecation warnings
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
+    strategy:
+      matrix:
+        configuration: [Release]
+
     runs-on: windows-latest
-    permissions:
-      contents: write
-      
+
+    env:
+      Solution_Name: PotopopiCamSync.sln
+      Project_Path: PotopopiCamSync/PotopopiCamSync.csproj
+      Test_Project_Path: PotopopiCamSync.Tests/PotopopiCamSync.Tests.csproj
+      Publish_Directory: ./publish
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    - name: Setup .NET
+    - name: Install .NET Core
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '10.0.x'
+        dotnet-version: 10.0.x
+
+    - name: Execute unit tests
+      run: dotnet test $env:Test_Project_Path --configuration ${{ matrix.configuration }}
 
     - name: Restore
-      run: dotnet restore
+      run: dotnet restore $env:Solution_Name
 
-    - name: Publish
+    - name: Publish the application
       run: |
-        dotnet publish PotopopiCamSync/PotopopiCamSync.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
+        dotnet publish $env:Project_Path -c ${{ matrix.configuration }} -r win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:IncludeNativeLibrariesForSelfExtract=true -o $env:Publish_Directory
 
-    - name: Release
-      uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
       with:
-        files: |
-          ./publish/PotopopiCamSync.exe
-          ./publish/Potopopi_CamSync_v*.exe
+        name: PotopopiCamSync_Build
+        path: ${{ env.Publish_Directory }}/PotopopiCamSync_*.exe
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/v')
+      with:
+        files: ${{ env.Publish_Directory }}/PotopopiCamSync_*.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
