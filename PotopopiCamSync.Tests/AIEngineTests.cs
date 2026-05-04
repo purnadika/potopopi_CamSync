@@ -10,12 +10,12 @@ namespace PotopopiCamSync.Tests
 {
     public class AIEngineTests : IDisposable
     {
-        // private readonly AIEngine _aiEngine;
+        // private readonly AIEngineService _aiEngine;
         private readonly string _tempDir;
 
         public AIEngineTests()
         {
-            // _aiEngine = new AIEngine(NullLogger<AIEngine>.Instance);
+            // _aiEngine = new AIEngineService(NullLogger<AIEngineService>.Instance);
             _tempDir = Path.Combine(Path.GetTempPath(), "PotopopiAITests_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempDir);
         }

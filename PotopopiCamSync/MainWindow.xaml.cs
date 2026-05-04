@@ -50,5 +50,31 @@ namespace PotopopiCamSync
             e.Cancel = true;
             this.Hide(); 
         }
+
+        private void ListView_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is System.Windows.Controls.ListView listView && listView.SelectedItem is Models.FlaggedFileModel file)
+            {
+                if (System.IO.File.Exists(file.Path))
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = file.Path,
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (System.Exception ex)
+                    {
+                        MessageBox.Show($"Could not open file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("File not found. It may have been moved or deleted.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+        }
     }
 }

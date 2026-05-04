@@ -13,12 +13,12 @@ namespace PotopopiCamSync.Tests
     /// </summary>
     public class SettingsWindowDeviceManagementTests : IDisposable
     {
-        private AppConfig _config;
-        private List<DeviceSignature> _devices;
+        private AppConfigModel _config;
+        private List<DeviceSignatureModel> _devices;
 
         public SettingsWindowDeviceManagementTests()
         {
-            _config = new AppConfig();
+            _config = new AppConfigModel();
             _devices = _config.RegisteredDevices;
         }
 
@@ -42,7 +42,7 @@ namespace PotopopiCamSync.Tests
         [Fact(Skip = "Headless hang")]
         public void AddDevice_Success()
         {
-            var device = new DeviceSignature
+            var device = new DeviceSignatureModel
             {
                 Id = "DEVICE_001",
                 Type = "Mtp",
@@ -62,9 +62,9 @@ namespace PotopopiCamSync.Tests
         [Fact(Skip = "Headless hang")]
         public void AddMultipleDevices_Success()
         {
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card Reader" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_003", Type = "Mtp", Name = "Camera 2" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card Reader" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_003", Type = "Mtp", Name = "Camera 2" });
 
             Assert.Equal(3, _devices.Count);
         }
@@ -76,9 +76,9 @@ namespace PotopopiCamSync.Tests
         public void UnregisterDevice_RemovesByID()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card Reader" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_003", Type = "Mtp", Name = "Camera 2" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card Reader" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_003", Type = "Mtp", Name = "Camera 2" });
 
             // Act
             var removed = _devices.RemoveAll(d => d.Id == "DEVICE_002");
@@ -97,7 +97,7 @@ namespace PotopopiCamSync.Tests
         public void UnregisterDevice_NonExistent_NoRemoval()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
 
             // Act
             var removed = _devices.RemoveAll(d => d.Id == "NONEXISTENT");
@@ -114,10 +114,10 @@ namespace PotopopiCamSync.Tests
         public void UnregisterDevicesByType_RemovesOnlySpecificType()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "MTP_001", Type = "Mtp", Name = "Camera 1" });
-            _devices.Add(new DeviceSignature { Id = "SD_001", Type = "SdCard", Name = "SD Card 1" });
-            _devices.Add(new DeviceSignature { Id = "MTP_002", Type = "Mtp", Name = "Camera 2" });
-            _devices.Add(new DeviceSignature { Id = "SD_002", Type = "SdCard", Name = "SD Card 2" });
+            _devices.Add(new DeviceSignatureModel { Id = "MTP_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "SD_001", Type = "SdCard", Name = "SD Card 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "MTP_002", Type = "Mtp", Name = "Camera 2" });
+            _devices.Add(new DeviceSignatureModel { Id = "SD_002", Type = "SdCard", Name = "SD Card 2" });
 
             // Act
             var removed = _devices.RemoveAll(d => d.Type == "SdCard");
@@ -135,7 +135,7 @@ namespace PotopopiCamSync.Tests
         public void UpdateDeviceName_Success()
         {
             // Arrange
-            var device = new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera" };
+            var device = new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera" };
             _devices.Add(device);
 
             // Act
@@ -154,7 +154,7 @@ namespace PotopopiCamSync.Tests
         public void DeviceWithAlbum_PreservedAfterRefresh()
         {
             // Arrange
-            var device = new DeviceSignature
+            var device = new DeviceSignatureModel
             {
                 Id = "DEVICE_001",
                 Type = "Mtp",
@@ -165,7 +165,7 @@ namespace PotopopiCamSync.Tests
 
             // Act
             // Simulate refresh: clear and repopulate (actual refresh would reload from storage)
-            var newConfig = new AppConfig();
+            var newConfig = new AppConfigModel();
             newConfig.RegisteredDevices.Add(device);
 
             // Assert
@@ -189,8 +189,8 @@ namespace PotopopiCamSync.Tests
         public void ClearAllDevices_Success()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
 
             // Act
             _devices.Clear();
@@ -206,9 +206,9 @@ namespace PotopopiCamSync.Tests
         public void FindDeviceById_Success()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_003", Type = "Mtp", Name = "Camera 2" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_003", Type = "Mtp", Name = "Camera 2" });
 
             // Act
             var device = _devices.FirstOrDefault(d => d.Id == "DEVICE_002");
@@ -226,7 +226,7 @@ namespace PotopopiCamSync.Tests
         public void FindDeviceById_NotFound_ReturnsNull()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
 
             // Act
             var device = _devices.FirstOrDefault(d => d.Id == "NONEXISTENT");
@@ -242,8 +242,8 @@ namespace PotopopiCamSync.Tests
         public void GetDeviceCount_ReturnsCorrectCount()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
 
             // Act
             var count = _devices.Count;
@@ -259,9 +259,9 @@ namespace PotopopiCamSync.Tests
         public void DeviceList_MaintainsOrder()
         {
             // Arrange
-            var dev1 = new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "First" };
-            var dev2 = new DeviceSignature { Id = "DEVICE_002", Type = "SdCard", Name = "Second" };
-            var dev3 = new DeviceSignature { Id = "DEVICE_003", Type = "Mtp", Name = "Third" };
+            var dev1 = new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "First" };
+            var dev2 = new DeviceSignatureModel { Id = "DEVICE_002", Type = "SdCard", Name = "Second" };
+            var dev3 = new DeviceSignatureModel { Id = "DEVICE_003", Type = "Mtp", Name = "Third" };
 
             _devices.Add(dev1);
             _devices.Add(dev2);
@@ -280,9 +280,9 @@ namespace PotopopiCamSync.Tests
         public void RemoveDuplicateDeviceIds_Success()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1 Duplicate" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1 Duplicate" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
 
             // Act
             var removed = _devices.RemoveAll(d => d.Id == "DEVICE_001");
@@ -300,9 +300,9 @@ namespace PotopopiCamSync.Tests
         public void IterateDevices_Success()
         {
             // Arrange
-            _devices.Add(new DeviceSignature { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
-            _devices.Add(new DeviceSignature { Id = "DEVICE_003", Type = "Mtp", Name = "Camera 2" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_001", Type = "Mtp", Name = "Camera 1" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_002", Type = "SdCard", Name = "SD Card" });
+            _devices.Add(new DeviceSignatureModel { Id = "DEVICE_003", Type = "Mtp", Name = "Camera 2" });
 
             // Act
             var names = new List<string>();

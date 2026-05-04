@@ -38,103 +38,192 @@
         </Border>
 
         <!-- Main Content Area -->
-        <Grid Grid.Row="1" Margin="20">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.2*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+        <!-- Tab Content -->
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="10,0,10,0">
+            <!-- DASHBOARD TAB -->
+            <TabItem Header="Sync Dashboard">
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.2*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-            <!-- Left: Device Management & Analysis -->
-            <StackPanel Grid.Column="0" Margin="0,0,20,0">
-                <TextBlock Text="Active Devices" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="#2C3E50"/>
-                
-                <ItemsControl ItemsSource="{Binding ActiveDevices}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="White" CornerRadius="8" Padding="15" Margin="0,0,0,10" BorderBrush="#DCDDE1" BorderThickness="1">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding DeviceName}" FontWeight="Bold" FontSize="15" Foreground="#2F3640"/>
-                                        <TextBlock Text="Registered &amp; Connected" FontSize="11" Foreground="#7F8C8D" Margin="0,2,0,0"/>
-                                    </StackPanel>
-                                    <Button Grid.Column="1" Content="Sync" Command="{Binding DataContext.ManualSyncCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
-                                            Width="80" Padding="5" Background="#27AE60" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    <!-- Left: Device Management -->
+                    <ScrollViewer Grid.Column="0" Margin="0,0,20,0" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="Active Devices" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="#2C3E50"/>
+                            <ItemsControl ItemsSource="{Binding ActiveDevices}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="White" CornerRadius="8" Padding="15" Margin="0,0,0,10" BorderBrush="#DCDDE1" BorderThickness="1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" FontSize="15" Foreground="#2F3640"/>
+                                                    <TextBlock Text="Registered &amp; Connected" FontSize="11" Foreground="#7F8C8D" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <Button Content="Sync" Command="{Binding DataContext.ManualSyncCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                                            Width="60" Padding="5" Background="#27AE60" Foreground="White" FontWeight="Bold" BorderThickness="0" Margin="0,0,5,0"/>
+                                                    <Button Content="Force" Command="{Binding DataContext.ForceSyncCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                                            Width="50" Padding="5" Background="#E67E22" Foreground="White" FontWeight="Bold" BorderThickness="0" ToolTip="Force verify all files and re-download missing/incomplete files"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
-                <TextBlock Text="New Devices Found" FontWeight="Bold" FontSize="16" Margin="0,15,0,12" Foreground="#2C3E50" 
-                           Visibility="{Binding UnregisteredDevices.Count, Converter={StaticResource BoolToVis}}"/>
-                
-                <ItemsControl ItemsSource="{Binding UnregisteredDevices}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="#EBEEF1" CornerRadius="8" Padding="15" Margin="0,0,0,10">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <Button Grid.Column="1" Content="Register" Command="{Binding DataContext.RegisterDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
-                                            Padding="10,5" Background="#3498DB" Foreground="White" BorderThickness="0"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                            <TextBlock Text="New Devices Found" FontWeight="Bold" FontSize="16" Margin="0,15,0,12" Foreground="#2C3E50" 
+                                       Visibility="{Binding UnregisteredDevices.Count, Converter={StaticResource BoolToVis}}"/>
+                            <ItemsControl ItemsSource="{Binding UnregisteredDevices}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#EBEEF1" CornerRadius="8" Padding="15" Margin="0,0,0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                <Button Grid.Column="1" Content="Register" Command="{Binding DataContext.RegisterDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                                        Padding="10,5" Background="#3498DB" Foreground="White" BorderThickness="0"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            
+                        </StackPanel>
+                    </ScrollViewer>
 
-                <!-- Analysis Summary (Premium UX) -->
-                <Border Background="#DFF9FB" CornerRadius="8" Padding="15" Margin="0,20,0,0" BorderBrush="#7ED6DF" BorderThickness="1"
-                        Visibility="{Binding ShowAnalysisResults, Converter={StaticResource BoolToVis}}">
-                    <StackPanel>
-                        <TextBlock Text="AI Analysis Results" FontWeight="Bold" Foreground="#130F40" Margin="0,0,0,10"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="Blurry Photos" Foreground="#7F8C8D" FontSize="12"/>
-                                <TextBlock Text="{Binding BlurryCount}" FontSize="24" FontWeight="Bold" Foreground="#EB4D4B"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="Duplicates" Foreground="#7F8C8D" FontSize="12"/>
-                                <TextBlock Text="{Binding DuplicateCount}" FontSize="24" FontWeight="Bold" Foreground="#F0932B"/>
-                            </StackPanel>
-                        </Grid>
-                        <Button Content="Review Flagged Files" Command="{Binding ReviewAIResultsCommand}" 
-                                Margin="0,15,0,0" Padding="10" Background="#130F40" Foreground="White" 
-                                FontWeight="Bold" BorderThickness="0"/>
+                    <!-- Right: Activity Logs -->
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Activity Log" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="#2C3E50"/>
+                        <Border Grid.Row="1" Background="White" CornerRadius="8" BorderBrush="#DCDDE1" BorderThickness="1">
+                            <ListBox ItemsSource="{Binding Logs}" BorderThickness="0" Background="Transparent" Padding="10">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="12" FontFamily="Consolas" Foreground="#34495E" TextWrapping="Wrap"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
 
+            <!-- AI REVIEW TAB -->
+            <TabItem Header="AI Review">
+                <Grid Margin="20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Margin="0,0,0,20">
+                        <TextBlock Text="AI Analysis Results" FontSize="20" FontWeight="Bold" Foreground="#2C3E50"/>
+                        <TextBlock Text="Flagged files (blurry or duplicate) are kept here until you allow them to sync or delete them." Foreground="#7F8C8D"/>
                     </StackPanel>
-                </Border>
-            </StackPanel>
 
-            <!-- Right: Activity Log -->
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <TextBlock Text="Activity Log" FontWeight="Bold" FontSize="16" Margin="0,0,0,12" Foreground="#2C3E50"/>
-                <Border Grid.Row="1" Background="#2F3640" CornerRadius="8" Padding="10">
-                    <ListBox ItemsSource="{Binding Logs}" Background="Transparent" BorderThickness="0">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" Foreground="#DCDDE1" FontFamily="Consolas" FontSize="11" Margin="0,2"/>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Border>
-            </Grid>
-        </Grid>
+                    <Border Grid.Row="1" Background="White" CornerRadius="8" BorderBrush="#DCDDE1" BorderThickness="1">
+                        <ListView ItemsSource="{Binding FlaggedFiles}" BorderThickness="0" Background="Transparent" MouseDoubleClick="ListView_MouseDoubleClick">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Width="40">
+                                        <GridViewColumn.HeaderTemplate>
+                                            <DataTemplate>
+                                                <CheckBox ToolTip="Select All" Command="{Binding DataContext.ToggleSelectAllCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                          CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Self}}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.HeaderTemplate>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected}" HorizontalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="Reason" Width="100">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border CornerRadius="4" Padding="6,2">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="#FF7675"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Reason}" Value="Duplicate">
+                                                                    <Setter Property="Background" Value="#FDCB6E"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding Reason}" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="Action" Width="200">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Command="{Binding DataContext.AllowImmichSyncCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                            CommandParameter="{Binding}" Width="80" Margin="0,0,5,0" Foreground="White" BorderThickness="0" Padding="5,2" FontWeight="Bold">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Content" Value="Allow Sync"/>
+                                                                <Setter Property="Background" Value="#FDCB6E"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsAllowed}" Value="True">
+                                                                        <Setter Property="Content" Value="Allowed"/>
+                                                                        <Setter Property="Background" Value="#00B894"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                    <Button Command="{Binding DataContext.ToggleDeleteLocalCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                            CommandParameter="{Binding}" Width="80" Foreground="White" BorderThickness="0" Padding="5,2" FontWeight="Bold">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Content" Value="Delete Local"/>
+                                                                <Setter Property="Background" Value="#95A5A6"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsPendingDeletion}" Value="True">
+                                                                        <Setter Property="Content" Value="To Delete"/>
+                                                                        <Setter Property="Background" Value="#E74C3C"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="File Name" DisplayMemberBinding="{Binding FileName}" Width="200"/>
+                                    <GridViewColumn Header="Full Path" DisplayMemberBinding="{Binding Path}" Width="350"/>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </Border>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                        <Button Content="Allow Selected" Command="{Binding AllowSelectedImmichSyncCommand}" Padding="15,8" Margin="0,0,10,0" Background="#00B894" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                        <Button Content="Revoke Selected" Command="{Binding RevokeSelectedImmichSyncCommand}" Padding="15,8" Margin="0,0,10,0" Background="#E67E22" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                        <Button Content="Delete Selected Local" Command="{Binding DeleteSelectedLocalCommand}" Padding="15,8" Margin="0,0,10,0" Background="#EB4D4B" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                        <Button Content="Open Local Folder" Command="{Binding OpenLocalFolderCommand}" Padding="15,8" Background="#BDC3C7" BorderThickness="0"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
 
         <!-- Bottom Status Bar -->
         <Border Grid.Row="2" Background="White" BorderBrush="#DCDDE1" BorderThickness="0,1,0,0" Padding="20,10">
@@ -147,8 +236,15 @@
                 <StackPanel VerticalAlignment="Center">
                     <ProgressBar Minimum="0" Maximum="100" Value="{Binding SyncProgressPercentage}" Height="12" Foreground="#27AE60" Background="#ECF0F1" BorderThickness="0"
                                  Visibility="{Binding IsSyncing, Converter={StaticResource BoolToVis}}"/>
-                    <TextBlock Text="{Binding SyncProgressPercentage, StringFormat={}{0:F0}% Complete}" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0"
-                               Visibility="{Binding IsSyncing, Converter={StaticResource BoolToVis}}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2,0,0">
+                        <TextBlock Text="{Binding SyncProgressPercentage, StringFormat={}{0:F0}% Complete}" FontSize="10" 
+                                   Visibility="{Binding IsSyncing, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text=" | Built with ❤️" FontSize="10" Foreground="#BDC3C7" Margin="5,0,0,0">
+                            <TextBlock.ToolTip>
+                                <ToolTip Content="AI from Antigravity and Copilot"/>
+                            </TextBlock.ToolTip>
+                        </TextBlock>
+                    </StackPanel>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="20,0,0,0">

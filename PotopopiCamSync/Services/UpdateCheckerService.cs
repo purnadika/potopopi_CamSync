@@ -8,13 +8,13 @@ namespace PotopopiCamSync.Services;
 /// <summary>
 /// Checks GitHub releases for app updates.
 /// </summary>
-public class UpdateChecker
+public class UpdateCheckerService
 {
     private readonly HttpClient _httpClient;
-    private readonly ILogger<UpdateChecker> _logger;
+    private readonly ILogger<UpdateCheckerService> _logger;
     private const string GitHubApiUrl = "https://api.github.com/repos/purnadika/potopopi_CamSync/releases/latest";
 
-    public UpdateChecker(HttpClient httpClient, ILogger<UpdateChecker> logger)
+    public UpdateCheckerService(HttpClient httpClient, ILogger<UpdateCheckerService> logger)
     {
         _httpClient = httpClient;
         _logger = logger;

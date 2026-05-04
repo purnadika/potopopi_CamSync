@@ -17,7 +17,7 @@ namespace PotopopiCamSync.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
-        private readonly SyncOrchestrator _orchestrator;
+        private readonly SyncOrchestratorService _orchestrator;
         private readonly DeviceMonitorService _deviceMonitor;
         private readonly ISettingsRepository _settingsRepository;
         private readonly ILogger<MainViewModel> _logger;
@@ -51,9 +51,9 @@ namespace PotopopiCamSync.ViewModels
         public ObservableCollection<string> Logs { get; } = new();
         public ObservableCollection<IDeviceProvider> UnregisteredDevices { get; } = new();
         public ObservableCollection<IDeviceProvider> ActiveDevices { get; } = new();
-        public ObservableCollection<FlaggedFile> FlaggedFiles { get; } = new();
+        public ObservableCollection<FlaggedFileModel> FlaggedFiles { get; } = new();
 
-        public MainViewModel(SyncOrchestrator orchestrator, DeviceMonitorService deviceMonitor, ISettingsRepository settingsRepository, ILogger<MainViewModel> logger)
+        public MainViewModel(SyncOrchestratorService orchestrator, DeviceMonitorService deviceMonitor, ISettingsRepository settingsRepository, ILogger<MainViewModel> logger)
         {
             _orchestrator = orchestrator;
             _deviceMonitor = deviceMonitor;
@@ -68,6 +68,20 @@ namespace PotopopiCamSync.ViewModels
 
             _deviceMonitor.Start();
             RefreshImmichStatus();
+
+            foreach (var log in _settingsRepository.State.PersistentLogs)
+            {
+                Logs.Add(log);
+            }
+
+            foreach (var file in _settingsRepository.State.PersistentFlaggedFiles)
+            {
+                FlaggedFiles.Add(file);
+            }
+            if (FlaggedFiles.Count > 0)
+                ShowAnalysisResults = true;
+
+            Log($"Restored {Logs.Count} log(s) and {FlaggedFiles.Count} AI result(s) from previous session.");
         }
 
         public void RefreshImmichStatus()
@@ -80,16 +94,21 @@ namespace PotopopiCamSync.ViewModels
         private void ManualSync(IDeviceProvider device)
         {
             if (device == null || IsSyncing) return;
-            ShowAnalysisResults = false;
-            FlaggedFiles.Clear();
-            StartSync(() => _orchestrator.StartSyncAsync(device, GetNewToken()));
+            StartSync(() => _orchestrator.StartSyncAsync(device, GetNewToken(), forceVerify: false));
+        }
+
+        [RelayCommand]
+        private void ForceSync(IDeviceProvider device)
+        {
+            if (device == null || IsSyncing) return;
+            StartSync(() => _orchestrator.StartSyncAsync(device, GetNewToken(), forceVerify: true));
         }
 
         [RelayCommand]
         private void RegisterDevice(IDeviceProvider device)
         {
             if (device == null) return;
-            var signature = new DeviceSignature { Id = device.DeviceId, Name = device.DeviceName, Type = device is MtpDeviceProvider ? "Mtp" : "SdCard" };
+            var signature = new DeviceSignatureModel { Id = device.DeviceId, Name = device.DeviceName, Type = device is MtpDeviceProvider ? "Mtp" : "SdCard" };
             _settingsRepository.Config.RegisteredDevices.Add(signature);
             _settingsRepository.SaveConfig();
             UnregisteredDevices.Remove(device);
@@ -102,7 +121,58 @@ namespace PotopopiCamSync.ViewModels
         private void SyncLocalToImmich()
         {
             if (IsSyncing) return;
-            StartSync(() => _orchestrator.SyncLocalToImmichAsync(GetNewToken()));
+            StartSync(async () => 
+            {
+                // First, handle local deletions from AI Review
+                var toDelete = FlaggedFiles.Where(f => f.IsPendingDeletion).ToList();
+                int deletedCount = 0;
+                foreach (var file in toDelete)
+                {
+                    try
+                    {
+                        if (File.Exists(file.Path)) File.Delete(file.Path);
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            FlaggedFiles.Remove(file);
+                            _settingsRepository.State.PersistentFlaggedFiles.Remove(file);
+                        });
+                        deletedCount++;
+                    }
+                    catch (Exception ex) { Log($"Failed to delete {file.FileName}: {ex.Message}"); }
+                }
+                if (deletedCount > 0) Log($"Deleted {deletedCount} file(s) locally as requested.");
+
+                // Then run the sync
+                await _orchestrator.SyncLocalToImmichAsync(GetNewToken());
+                
+                // After sync, remove successfully uploaded files from FlaggedFiles
+                var state = _settingsRepository.State;
+                var sourceId = "__local_backup__";
+                if (state.SyncedFiles.TryGetValue(sourceId, out var syncedSet))
+                {
+                    var uploadedFlagged = FlaggedFiles.Where(f => syncedSet.Contains(f.Path.ToUpperInvariant())).ToList();
+                    foreach (var file in uploadedFlagged)
+                    {
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            FlaggedFiles.Remove(file);
+                            _settingsRepository.State.PersistentFlaggedFiles.Remove(file);
+                        });
+                    }
+                }
+                _settingsRepository.SaveState();
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() => ClearCacheAndLogs());
+            });
+        }
+
+        [RelayCommand]
+        private void ClearCacheAndLogs()
+        {
+            Logs.Clear();
+            _settingsRepository.State.PersistentLogs.Clear();
+            _settingsRepository.SaveState();
+            Log("Cache and Logs cleared.");
         }
 
         [RelayCommand]
@@ -115,11 +185,100 @@ namespace PotopopiCamSync.ViewModels
             catch (Exception ex) { Log($"Explorer error: {ex.Message}"); }
         }
 
+
+
         [RelayCommand]
-        private void ReviewAIResults()
+        private void AllowImmichSync(FlaggedFileModel file)
         {
-            var window = new AIReviewWindow { DataContext = this };
-            window.ShowDialog();
+            if (file == null) return;
+            
+            var state = _settingsRepository.State;
+            if (file.IsAllowed)
+            {
+                state.AllowedAIRejectedFiles.Remove(file.Path);
+                file.IsAllowed = false;
+                Log($"Revoked {file.FileName} from whitelist.");
+            }
+            else
+            {
+                state.AllowedAIRejectedFiles.Add(file.Path);
+                file.IsAllowed = true;
+                Log($"Whitelisted {file.FileName} for Immich sync.");
+            }
+            _settingsRepository.SaveState();
+        }
+
+        [RelayCommand]
+        private void AllowSelectedImmichSync()
+        {
+            var selectedFiles = FlaggedFiles.Where(f => f.IsSelected).ToList();
+            if (selectedFiles.Count == 0) return;
+
+            var state = _settingsRepository.State;
+            int count = 0;
+            foreach (var file in selectedFiles)
+            {
+                state.AllowedAIRejectedFiles.Add(file.Path);
+                file.IsAllowed = true;
+                count++;
+            }
+            _settingsRepository.SaveState();
+            
+            Log($"Whitelisted {count} file(s) for Immich sync.");
+        }
+
+        [RelayCommand]
+        private void RevokeSelectedImmichSync()
+        {
+            var selectedFiles = FlaggedFiles.Where(f => f.IsSelected).ToList();
+            if (selectedFiles.Count == 0) return;
+
+            var state = _settingsRepository.State;
+            int count = 0;
+            foreach (var file in selectedFiles)
+            {
+                state.AllowedAIRejectedFiles.Remove(file.Path);
+                file.IsAllowed = false;
+                count++;
+            }
+            _settingsRepository.SaveState();
+            
+            Log($"Revoked {count} file(s) from whitelist.");
+        }
+
+        [RelayCommand]
+        private void ToggleDeleteLocal(FlaggedFileModel file)
+        {
+            if (file == null) return;
+            file.IsPendingDeletion = !file.IsPendingDeletion;
+            _settingsRepository.SaveState();
+            Log(file.IsPendingDeletion ? $"Marked {file.FileName} for deletion." : $"Unmarked {file.FileName} for deletion.");
+        }
+
+        [RelayCommand]
+        private void DeleteSelectedLocal()
+        {
+            var selectedFiles = FlaggedFiles.Where(f => f.IsSelected).ToList();
+            if (selectedFiles.Count == 0) return;
+
+            int count = 0;
+            foreach (var file in selectedFiles)
+            {
+                file.IsPendingDeletion = true;
+                count++;
+            }
+            _settingsRepository.SaveState();
+            Log($"Marked {count} file(s) for deletion.");
+        }
+
+        [RelayCommand]
+        private void ToggleSelectAll(bool? select)
+        {
+            if (select == null) return;
+            foreach (var file in FlaggedFiles)
+            {
+                file.IsSelected = select.Value;
+            }
         }
 
         [RelayCommand]
@@ -129,11 +288,20 @@ namespace PotopopiCamSync.ViewModels
         {
             SyncProgressPercentage = 0;
             IsSyncing = true;
-            _ = syncAction().ContinueWith(t => {
-                System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                    IsSyncing = false;
-                    if (t.IsFaulted) Log($"Sync error: {t.Exception?.InnerException?.Message}");
-                });
+            Task.Run(async () => 
+            {
+                try 
+                {
+                    await syncAction();
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() => Log($"Sync error: {ex.InnerException?.Message ?? ex.Message}"));
+                }
+                finally
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() => IsSyncing = false);
+                }
             });
         }
 
@@ -164,11 +332,17 @@ namespace PotopopiCamSync.ViewModels
         private void OnAIResultFound(string path, string reason, bool isBlurry)
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                FlaggedFiles.Add(new FlaggedFile { Path = path, Reason = reason, IsBlurry = isBlurry });
+                var model = new FlaggedFileModel { Path = path, Reason = reason, IsBlurry = isBlurry };
+                if (!FlaggedFiles.Any(f => f.Path == path))
+                {
+                    FlaggedFiles.Add(model);
+                    _settingsRepository.State.PersistentFlaggedFiles.Add(model);
+                    _settingsRepository.SaveState();
+                }
             });
         }
 
-        private void OnMetricsUpdated(SyncMetrics metrics)
+        private void OnMetricsUpdated(SyncMetricsModel metrics)
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() => {
                 if (metrics.TotalFiles > 0)
@@ -194,13 +368,13 @@ namespace PotopopiCamSync.ViewModels
             });
         }
 
-        private void OnSyncCompleted(string deviceId)
+        private void OnSyncCompleted(IDeviceProvider device)
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() => {
                 IsSyncing = false;
                 StatusText = "Done. Ready for next device.";
-                Log($"Sync completed: {deviceId}");
-                App.ShowTrayNotification("Sync Complete", $"Successfully synced device {deviceId}");
+                Log($"Sync completed: {device.DisplayName}");
+                App.ShowTrayNotification("Sync Complete", $"Successfully synced device {device.DisplayName}");
             });
         }
 
@@ -209,15 +383,13 @@ namespace PotopopiCamSync.ViewModels
             string entry = $"[{DateTime.Now:HH:mm:ss}] {message}";
             Logs.Insert(0, entry);
             if (Logs.Count > 100) Logs.RemoveAt(100);
+
+            var state = _settingsRepository.State;
+            state.PersistentLogs.Insert(0, entry);
+            if (state.PersistentLogs.Count > 100) state.PersistentLogs.RemoveAt(100);
+            _settingsRepository.SaveState();
+
             _logger.LogInformation(message);
         }
-    }
-
-    public class FlaggedFile
-    {
-        public string Path { get; set; } = string.Empty;
-        public string FileName => System.IO.Path.GetFileName(Path);
-        public string Reason { get; set; } = string.Empty;
-        public bool IsBlurry { get; set; }
     }
 }

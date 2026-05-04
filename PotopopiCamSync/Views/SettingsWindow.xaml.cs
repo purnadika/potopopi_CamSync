@@ -16,14 +16,14 @@ namespace PotopopiCamSync.Views
     public partial class SettingsWindow : Window
     {
         private readonly ISettingsRepository _settings;
-        private ObservableCollection<DeviceSignature> _devicesList;
-        public ObservableCollection<ImmichAccount> ImmichAccountsList { get; } = new();
+        private ObservableCollection<DeviceSignatureModel> _devicesList;
+        public ObservableCollection<ImmichAccountModel> ImmichAccountsList { get; } = new();
 
         public SettingsWindow()
         {
             InitializeComponent();
             _settings = App.ServiceProvider.GetRequiredService<ISettingsRepository>();
-            _devicesList = new ObservableCollection<DeviceSignature>();
+            _devicesList = new ObservableCollection<DeviceSignatureModel>();
             LoadSettings();
         }
 
@@ -96,7 +96,7 @@ namespace PotopopiCamSync.Views
                 MessageBox.Show("Please enter URL and API Key above to use as a template for the new account.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             
-            var newAcc = new ImmichAccount 
+            var newAcc = new ImmichAccountModel 
             { 
                 Name = $"Account {ImmichAccountsList.Count + 1}", 
                 Url = txtImmichUrl.Text, 
@@ -114,9 +114,37 @@ namespace PotopopiCamSync.Views
             }
         }
 
-        private void Save_Click(object sender, RoutedEventArgs e)
+        private async void Save_Click(object sender, RoutedEventArgs e)
         {
+            var newAiMode = rbAI_Extreme.IsChecked == true ? AIAnalysisMode.Extreme : (rbAI_None.IsChecked == true ? AIAnalysisMode.None : AIAnalysisMode.Standard);
+            
+            if (newAiMode != AIAnalysisMode.None)
+            {
+                var depManager = App.ServiceProvider.GetRequiredService<AIDependencyManagerService>();
+                if (!depManager.IsInstalled())
+                {
+                    var result = MessageBox.Show("Fitur AI butuh modul tambahan (Native Libraries, ~45MB).\nDownload sekarang?", "AI Module Required", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        var dlWindow = new AIDownloadWindow { Owner = this };
+                        if (dlWindow.ShowDialog() != true)
+                        {
+                            // Download failed or cancelled
+                            rbAI_None.IsChecked = true;
+                            return; // Stop saving
+                        }
+                    }
+                    else
+                    {
+                        // User declined
+                        rbAI_None.IsChecked = true;
+                        return; // Stop saving
+                    }
+                }
+            }
+
             var config = _settings.Config;
+
             config.LocalBackupFolder = txtLocalFolder.Text;
             config.DeleteAfterSync   = chkDeleteAfter.IsChecked ?? false;
             if (int.TryParse(txtKeepDays.Text, out int days)) config.KeepFilesDays = days;
@@ -131,7 +159,7 @@ namespace PotopopiCamSync.Views
             if (long.TryParse(txtDownloadLimit.Text, out long dlMb)) config.DownloadSpeedLimitBps = dlMb * 1024 * 1024;
             if (long.TryParse(txtUploadLimit.Text, out long ulMb)) config.UploadSpeedLimitBps = ulMb * 1024 * 1024;
 
-            config.AIAnalysisMode = rbAI_Extreme.IsChecked == true ? AIAnalysisMode.Extreme : (rbAI_None.IsChecked == true ? AIAnalysisMode.None : AIAnalysisMode.Standard);
+            config.AIAnalysisMode = newAiMode;
 
             config.StartMinimized = chkStartMinimized.IsChecked ?? false;
             config.MinimizeToTray = chkMinimizeToTray.IsChecked ?? true;
@@ -184,6 +212,17 @@ namespace PotopopiCamSync.Views
         private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
         {
             try { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); e.Handled = true; } catch { }
+        }
+        private void ClearCache_Click(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show("Are you sure you want to clear activity logs and AI review history?", "Clear Cache", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                _settings.State.PersistentLogs.Clear();
+                _settings.State.PersistentFlaggedFiles.Clear();
+                _settings.State.AllowedAIRejectedFiles.Clear();
+                _settings.SaveState();
+                MessageBox.Show("Cache cleared successfully. Please restart the app for changes to take effect in the dashboard.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
     }
 }

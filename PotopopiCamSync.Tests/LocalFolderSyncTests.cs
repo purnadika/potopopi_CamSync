@@ -10,12 +10,12 @@ using PotopopiCamSync.Services;
 namespace PotopopiCamSync.Tests;
 
 /// <summary>
-/// Tests for LocalFolderSync — verifies date folder structure, size-skip logic, and async write.
+/// Tests for LocalFolderSyncService — verifies date folder structure, size-skip logic, and async write.
 /// </summary>
 public class LocalFolderSyncTests : IDisposable
 {
     private readonly string _targetFolder;
-    private readonly ILogger<LocalFolderSync> _logger = NullLogger<LocalFolderSync>.Instance;
+    private readonly ILogger<LocalFolderSyncService> _logger = NullLogger<LocalFolderSyncService>.Instance;
 
     public LocalFolderSyncTests()
     {
@@ -23,9 +23,9 @@ public class LocalFolderSyncTests : IDisposable
         Directory.CreateDirectory(_targetFolder);
     }
 
-    private SyncFile MakeSyncFile(string fileName, DateTime created, long size = 100)
+    private SyncFileModel MakeSyncFile(string fileName, DateTime created, long size = 100)
     {
-        return new SyncFile
+        return new SyncFileModel
         {
             FileName = fileName,
             OriginalPath = Path.Combine(Path.GetTempPath(), fileName),
@@ -45,7 +45,7 @@ public class LocalFolderSyncTests : IDisposable
         File.WriteAllText(sourcePath, "fake jpeg");
         file.OriginalPath = sourcePath;
 
-        var sync = new LocalFolderSync(_targetFolder, _logger);
+        var sync = new LocalFolderSyncService(_targetFolder, _logger);
         bool result = await sync.UploadAsync(file, sourcePath);
 
         Assert.True(result);
@@ -70,7 +70,7 @@ public class LocalFolderSyncTests : IDisposable
         string destPath = Path.Combine(destDir, "skip_test.jpg");
         File.WriteAllText(destPath, "data"); // same content = same size
 
-        var sync = new LocalFolderSync(_targetFolder, _logger);
+        var sync = new LocalFolderSyncService(_targetFolder, _logger);
         bool result = await sync.UploadAsync(file, sourcePath);
 
         Assert.True(result);
@@ -84,7 +84,7 @@ public class LocalFolderSyncTests : IDisposable
     public async Task UploadAsync_Returns_False_When_SourceFile_Missing()
     {
         var file = MakeSyncFile("missing.jpg", DateTime.Now);
-        var sync = new LocalFolderSync(_targetFolder, _logger);
+        var sync = new LocalFolderSyncService(_targetFolder, _logger);
 
         bool result = await sync.UploadAsync(file, "/nonexistent/path/missing.jpg");
 
@@ -95,7 +95,7 @@ public class LocalFolderSyncTests : IDisposable
     public void GetLocalBackupPath_Returns_Correct_Path()
     {
         var file = MakeSyncFile("IMG_001.CR2", new DateTime(2026, 1, 15));
-        var sync = new LocalFolderSync(_targetFolder, _logger);
+        var sync = new LocalFolderSyncService(_targetFolder, _logger);
 
         string path = sync.GetLocalBackupPath(file);
 
@@ -109,7 +109,7 @@ public class LocalFolderSyncTests : IDisposable
         File.WriteAllBytes(sourcePath, new byte[1024 * 1024]); // 1MB
 
         var file = MakeSyncFile("cancel_test.jpg", DateTime.Now, 1024 * 1024);
-        var sync = new LocalFolderSync(_targetFolder, _logger);
+        var sync = new LocalFolderSyncService(_targetFolder, _logger);
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();

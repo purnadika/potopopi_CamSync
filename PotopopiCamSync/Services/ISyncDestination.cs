@@ -11,6 +11,6 @@ namespace PotopopiCamSync.Services
         /// Upload a file from the given local path to this destination.
         /// Returns true on success.
         /// </summary>
-        Task<bool> UploadAsync(SyncFile file, string localFilePath, CancellationToken cancellationToken = default);
+        Task<bool> UploadAsync(SyncFileModel file, string localFilePath, CancellationToken cancellationToken = default);
     }
 }

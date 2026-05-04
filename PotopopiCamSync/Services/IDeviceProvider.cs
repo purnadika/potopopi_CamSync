@@ -10,19 +10,19 @@ namespace PotopopiCamSync.Services
     {
         string DeviceId { get; }
         string DeviceName { get; }
+        string DisplayName => $"{DeviceName} ({DeviceId})";
         bool IsConnected { get; }
 
         Task ConnectAsync(CancellationToken cancellationToken = default);
         void Disconnect();
-
-        Task<List<SyncFile>> GetFilesAsync(CancellationToken cancellationToken = default);
+        Task<List<SyncFileModel>> GetFilesAsync(CancellationToken cancellationToken = default, System.Action<string>? progressCallback = null);
 
         /// <summary>
         /// Downloads the file directly to the given destination stream.
         /// Avoids buffering the entire file in memory.
         /// </summary>
-        Task DownloadToStreamAsync(SyncFile file, Stream destination, CancellationToken cancellationToken = default);
+        Task DownloadToStreamAsync(SyncFileModel file, Stream destination, CancellationToken cancellationToken = default);
 
-        Task DeleteFileAsync(SyncFile file, CancellationToken cancellationToken = default);
+        Task DeleteFileAsync(SyncFileModel file, CancellationToken cancellationToken = default);
     }
 }

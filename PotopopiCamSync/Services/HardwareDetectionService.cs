@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Management;
 using Microsoft.Extensions.Logging;
+using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
 {
@@ -14,9 +15,9 @@ namespace PotopopiCamSync.Services
             _logger = logger;
         }
 
-        public HardwareCapabilities GetCapabilities()
+        public HardwareCapabilitiesModel GetCapabilities()
         {
-            var caps = new HardwareCapabilities();
+            var caps = new HardwareCapabilitiesModel();
             try
             {
                 using var searcher = new ManagementObjectSearcher("select * from Win32_VideoController");
@@ -49,25 +50,6 @@ namespace PotopopiCamSync.Services
 
             _logger.LogInformation("Hardware detection complete. Suggested AI Mode: {Mode}", caps.SuggestedMode);
             return caps;
-        }
-    }
-
-    public class HardwareCapabilities
-    {
-        public bool HasNvidiaGpu { get; set; }
-        public bool HasAmdGpu { get; set; }
-        public int NvidiaVramMb { get; set; }
-        public int TotalVramMb { get; set; }
-        public System.Collections.Generic.List<string> GpuNames { get; set; } = new();
-
-        public Models.AIAnalysisMode SuggestedMode
-        {
-            get
-            {
-                if (HasNvidiaGpu && NvidiaVramMb >= 6000) return Models.AIAnalysisMode.Extreme;
-                if (TotalVramMb >= 4000) return Models.AIAnalysisMode.Balanced;
-                return Models.AIAnalysisMode.Standard;
-            }
         }
     }
 }

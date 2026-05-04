@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MediaDevices;
 using Microsoft.Extensions.Logging;
 using PotopopiCamSync.Models;
+using PotopopiCamSync.Utilities;
 
 namespace PotopopiCamSync.Services
 {
@@ -16,12 +17,10 @@ namespace PotopopiCamSync.Services
 
         public string DeviceId { get; private set; }
         public string DeviceName { get; private set; }
+        public string DisplayName => $"{DeviceName} ({DeviceId})";
         public bool IsConnected => _device is not null && _device.IsConnected;
 
-        private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".jpg", ".jpeg", ".cr2", ".cr3", ".nef", ".arw", ".dng", ".mp4", ".mov", ".avi"
-        };
+
 
         public MtpDeviceProvider(string deviceId, string deviceName, ILogger<MtpDeviceProvider>? logger = null)
         {
@@ -80,11 +79,11 @@ namespace PotopopiCamSync.Services
             }
         }
 
-        public Task<List<SyncFile>> GetFilesAsync(CancellationToken cancellationToken = default)
+        public Task<List<SyncFileModel>> GetFilesAsync(CancellationToken cancellationToken = default, System.Action<string>? progressCallback = null)
         {
             return Task.Run(() =>
             {
-                var files = new List<SyncFile>();
+                var files = new List<SyncFileModel>();
                 if (!IsConnected || _device is null) return files;
 
                 var storages = _device.GetDrives();
@@ -105,7 +104,7 @@ namespace PotopopiCamSync.Services
 
                     if (!string.IsNullOrEmpty(dcimPath))
                     {
-                        FindFilesIterative(dcimPath, files, dcimPath, cancellationToken);
+                        FindFilesIterative(dcimPath, files, dcimPath, cancellationToken, progressCallback);
                     }
                 }
 
@@ -114,63 +113,79 @@ namespace PotopopiCamSync.Services
             }, cancellationToken);
         }
 
-        private void FindFilesIterative(string rootPath, List<SyncFile> files, string basePath, CancellationToken cancellationToken)
+        private void FindFilesIterative(string rootPath, List<SyncFileModel> files, string basePath, CancellationToken cancellationToken, System.Action<string>? progressCallback)
         {
-            var stack = new Stack<string>();
-            stack.Push(rootPath);
+            var stack = new Stack<MediaDirectoryInfo>();
+            
+            try
+            {
+                var rootDirInfo = _device!.GetDirectoryInfo(rootPath);
+                stack.Push(rootDirInfo);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not get root directory info for {Dir}", rootPath);
+                return;
+            }
 
             while (stack.Count > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                string currentPath = stack.Pop();
+                var currentDir = stack.Pop();
 
                 try
                 {
-                    foreach (var dir in _device!.GetDirectories(currentPath))
-                        stack.Push(dir);
+                    progressCallback?.Invoke($"Scanning folder: {currentDir.Name}");
 
-                    foreach (var filePath in _device.GetFiles(currentPath))
+                    // Push subdirectories
+                    foreach (var dir in currentDir.EnumerateDirectories())
                     {
-                        string ext = Path.GetExtension(filePath);
-                        if (!SupportedExtensions.Contains(ext)) continue;
+                        stack.Push(dir);
+                    }
+
+                    // Process files
+                    foreach (var fileInfo in currentDir.EnumerateFiles())
+                    {
+                        if (!FileUtilities.IsSupportedMedia(fileInfo.Name)) continue;
 
                         try
                         {
-                            var info = _device.GetFileInfo(filePath);
                             DateTime creationTime;
-                            if (info.CreationTime.HasValue)
-                                creationTime = info.CreationTime.Value;
-                            else if (info.LastWriteTime.HasValue)
-                                creationTime = info.LastWriteTime.Value;
+                            if (fileInfo.CreationTime.HasValue)
+                                creationTime = fileInfo.CreationTime.Value;
+                            else if (fileInfo.LastWriteTime.HasValue)
+                                creationTime = fileInfo.LastWriteTime.Value;
                             else
                             {
-                                _logger.LogWarning("No timestamp on file {File}, skipping.", filePath);
+                                _logger.LogWarning("No timestamp on file {File}, skipping.", fileInfo.FullName);
                                 continue;
                             }
 
-                            files.Add(new SyncFile
+                            string relativePath = fileInfo.FullName.Substring(basePath.Length).TrimStart('\\', '/');
+                            
+                            files.Add(new SyncFileModel
                             {
-                                OriginalPath = filePath,
-                                RelativePath = filePath.Substring(basePath.Length).TrimStart('\\', '/'),
-                                FileName = Path.GetFileName(filePath),
-                                Size = (long)info.Length,
+                                OriginalPath = fileInfo.FullName,
+                                RelativePath = relativePath,
+                                FileName = fileInfo.Name,
+                                Size = (long)fileInfo.Length,
                                 CreationTime = creationTime
                             });
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Could not read file info for {File}", filePath);
+                            _logger.LogWarning(ex, "Could not read file info for {File}", fileInfo.FullName);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Could not traverse directory {Dir}", currentPath);
+                    _logger.LogWarning(ex, "Could not traverse directory {Dir}", currentDir.FullName);
                 }
             }
         }
 
-        public Task DownloadToStreamAsync(SyncFile file, Stream destination, CancellationToken cancellationToken = default)
+        public Task DownloadToStreamAsync(SyncFileModel file, Stream destination, CancellationToken cancellationToken = default)
         {
             return Task.Run(() =>
             {
@@ -181,7 +196,7 @@ namespace PotopopiCamSync.Services
             }, cancellationToken);
         }
 
-        public Task DeleteFileAsync(SyncFile file, CancellationToken cancellationToken = default)
+        public Task DeleteFileAsync(SyncFileModel file, CancellationToken cancellationToken = default)
         {
             return Task.Run(() =>
             {

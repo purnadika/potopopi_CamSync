@@ -2,7 +2,7 @@ using System;
 
 namespace PotopopiCamSync.Models
 {
-    public class ImmichAccount
+    public class ImmichAccountModel
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = "Default Account";

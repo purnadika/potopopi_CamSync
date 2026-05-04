@@ -10,8 +10,8 @@ namespace PotopopiCamSync.Repositories
         private readonly string _configFilePath;
         private readonly string _stateFilePath;
 
-        public AppConfig Config { get; private set; } = null!;
-        public SyncState State { get; private set; } = null!;
+        public AppConfigModel Config { get; private set; } = null!;
+        public SyncStateModel State { get; private set; } = null!;
 
         public JsonSettingsRepository(string? customBasePath = null)
         {
@@ -32,21 +32,21 @@ namespace PotopopiCamSync.Repositories
             if (File.Exists(_configFilePath))
             {
                 string json = File.ReadAllText(_configFilePath);
-                Config = JsonConvert.DeserializeObject<AppConfig>(json) ?? new AppConfig();
+                Config = JsonConvert.DeserializeObject<AppConfigModel>(json) ?? new AppConfigModel();
             }
             else
             {
-                Config = new AppConfig();
+                Config = new AppConfigModel();
             }
 
             if (File.Exists(_stateFilePath))
             {
                 string json = File.ReadAllText(_stateFilePath);
-                State = JsonConvert.DeserializeObject<SyncState>(json) ?? new SyncState();
+                State = JsonConvert.DeserializeObject<SyncStateModel>(json) ?? new SyncStateModel();
             }
             else
             {
-                State = new SyncState();
+                State = new SyncStateModel();
             }
         }
 

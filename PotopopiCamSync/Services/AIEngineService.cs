@@ -4,14 +4,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
 {
-    public class AIEngine : IMediaAnalyzer
+    public class AIEngineService : IMediaAnalyzer
     {
-        private readonly ILogger<AIEngine> _logger;
+        private readonly ILogger<AIEngineService> _logger;
 
-        public AIEngine(ILogger<AIEngine> logger)
+        public AIEngineService(ILogger<AIEngineService> logger)
         {
             _logger = logger;
         }
@@ -76,14 +77,14 @@ namespace PotopopiCamSync.Services
             }
         }
 
-        public async Task<AnalysisResult> AnalyzeAsync(string filePath, CancellationToken ct = default)
+        public async Task<AnalysisResultModel> AnalyzeAsync(string filePath, CancellationToken ct = default)
         {
             return await Task.Run(() =>
             {
                 double blurScore = GetBlurScore(filePath);
                 ulong hash = GetImageHash(filePath);
 
-                return new AnalysisResult
+                return new AnalysisResultModel
                 {
                     BlurScore = blurScore,
                     ImageHash = hash,
@@ -92,13 +93,5 @@ namespace PotopopiCamSync.Services
                 };
             }, ct);
         }
-    }
-
-    public class AnalysisResult
-    {
-        public double BlurScore { get; set; }
-        public ulong ImageHash { get; set; }
-        public bool IsPotentiallyBlurry { get; set; }
-        public System.Collections.Generic.List<string> Tags { get; set; } = new();
     }
 }

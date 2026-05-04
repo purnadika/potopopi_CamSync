@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace PotopopiCamSync.Models
 {
-    public class AppConfig
+    public class AppConfigModel
     {
         public bool FirstRunCompleted { get; set; } = false;
         public string LocalBackupFolder { get; set; } = string.Empty;
@@ -16,7 +16,7 @@ namespace PotopopiCamSync.Models
         public bool EnableImmichSync { get; set; } = false;
 
         // New Multi-Account support
-        public List<ImmichAccount> ImmichAccounts { get; set; } = new();
+        public List<ImmichAccountModel> ImmichAccounts { get; set; } = new();
 
         // AI Config
         public AIAnalysisMode AIAnalysisMode { get; set; } = AIAnalysisMode.Standard;
@@ -33,30 +33,6 @@ namespace PotopopiCamSync.Models
         public bool StartMinimized { get; set; } = false;
         public bool MinimizeToTray { get; set; } = true;
 
-        public List<DeviceSignature> RegisteredDevices { get; set; } = new List<DeviceSignature>();
-    }
-
-    public enum AIAnalysisMode
-    {
-        None,
-        Standard,   // Blur + pHash (OpenCV)
-        Balanced,   // CPU AI (ONNX)
-        Extreme     // GPU AI (ONNX + CUDA/DirectML)
-    }
-
-    public class DeviceSignature
-    {
-        public string Id { get; set; } = string.Empty; // e.g. Volume Serial or MTP PnP Device ID
-        public string Type { get; set; } = "Mtp"; // Mtp or SdCard
-        public string Name { get; set; } = string.Empty;
-        public string ImmichAlbum { get; set; } = string.Empty; // Album name in Immich (optional)
-        public bool AutoAlbumEnabled { get; set; } = true;
-
-        // Profile Overrides
-        public string? LocalFolderOverride { get; set; }
-
-        public string? ImmichAccountId { get; set; }
-        public DateTime? LastSyncDate { get; set; }
-        public bool UseSmartScan { get; set; } = true;
+        public List<DeviceSignatureModel> RegisteredDevices { get; set; } = new List<DeviceSignatureModel>();
     }
 }

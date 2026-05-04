@@ -56,6 +56,10 @@
                         <TextBlock Text="App Behavior" FontWeight="Bold" Margin="0,15,0,10"/>
                         <CheckBox Name="chkStartMinimized" Content="Start Minimized (Background)" Margin="0,0,0,10"/>
                         <CheckBox Name="chkMinimizeToTray" Content="Minimize to Tray instead of Taskbar" Margin="0,0,0,10" IsChecked="True"/>
+
+                        <TextBlock Text="Maintenance" FontWeight="Bold" Margin="0,15,0,10"/>
+                        <Button Content="Clear Activity Logs &amp; AI Cache" Click="ClearCache_Click" Padding="10,6" Background="#FF7675" Foreground="White" FontWeight="Bold" BorderThickness="0" HorizontalAlignment="Left"/>
+                        <TextBlock Text="This will clear the history of AI results and the activity log." FontSize="11" Foreground="Gray" Margin="0,5,0,0"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

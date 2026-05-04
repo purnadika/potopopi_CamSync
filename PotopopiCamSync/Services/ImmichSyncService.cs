@@ -12,21 +12,21 @@ using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
 {
-    public class ImmichSync : ISyncDestination
+    public class ImmichSyncService : ISyncDestination
     {
         private readonly string _immichUrl;
         private readonly string _apiKey;
         private readonly string _deviceId;
-        private readonly ILogger<ImmichSync> _logger;
+        private readonly ILogger<ImmichSyncService> _logger;
         private readonly HttpClient _httpClient;
         private readonly IAsyncPolicy<HttpResponseMessage> _retryPolicy;
 
-        public ImmichSync(string immichUrl, string apiKey, string deviceId, ILogger<ImmichSync> logger)
+        public ImmichSyncService(string immichUrl, string apiKey, string deviceId, ILogger<ImmichSyncService> logger)
             : this(immichUrl, apiKey, deviceId, logger, null)
         {
         }
 
-        internal ImmichSync(string immichUrl, string apiKey, string deviceId, ILogger<ImmichSync> logger, HttpMessageHandler? handler)
+        internal ImmichSyncService(string immichUrl, string apiKey, string deviceId, ILogger<ImmichSyncService> logger, HttpMessageHandler? handler)
         {
             _immichUrl = immichUrl.TrimEnd('/');
             if (!_immichUrl.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
@@ -60,6 +60,20 @@ namespace PotopopiCamSync.Services
             _retryPolicy = CreateRetryPolicy();
         }
 
+        public async Task<bool> PingAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{_immichUrl}/server-info/ping");
+                request.Headers.Add("x-api-key", _apiKey);
+                var response = await _httpClient.SendAsync(request, cancellationToken);
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         private IAsyncPolicy<HttpResponseMessage> CreateRetryPolicy()
         {
@@ -80,10 +94,10 @@ namespace PotopopiCamSync.Services
                     });
         }
 
-        public async Task<bool> UploadAsync(SyncFile file, string localFilePath, CancellationToken cancellationToken = default)
+        public async Task<bool> UploadAsync(SyncFileModel file, string localFilePath, CancellationToken cancellationToken = default)
             => await UploadAsync(file, localFilePath, null, cancellationToken);
 
-        public async Task<bool> UploadAsync(SyncFile file, string localFilePath, string? albumName, CancellationToken cancellationToken = default)
+        public async Task<bool> UploadAsync(SyncFileModel file, string localFilePath, string? albumName, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -105,7 +119,7 @@ namespace PotopopiCamSync.Services
             }
         }
 
-        private async Task<bool> UploadSingleAsync(SyncFile file, string localFilePath, string? albumName, CancellationToken cancellationToken)
+        private async Task<bool> UploadSingleAsync(SyncFileModel file, string localFilePath, string? albumName, CancellationToken cancellationToken)
         {
             var response = await _retryPolicy.ExecuteAsync(async (ct) =>
             {
@@ -133,7 +147,7 @@ namespace PotopopiCamSync.Services
             return await HandleResponseAsync(response, file, albumName, cancellationToken);
         }
 
-        private async Task<bool> UploadChunkedAsync(SyncFile file, string localFilePath, string? albumName, CancellationToken cancellationToken)
+        private async Task<bool> UploadChunkedAsync(SyncFileModel file, string localFilePath, string? albumName, CancellationToken cancellationToken)
         {
             const long chunkSize = 30 * 1024 * 1024; // 30MB per chunk
             int totalChunks = (int)Math.Ceiling((double)file.Size / chunkSize);
@@ -193,7 +207,7 @@ namespace PotopopiCamSync.Services
             return true;
         }
 
-        private async Task<bool> HandleResponseAsync(HttpResponseMessage response, SyncFile file, string? albumName, CancellationToken cancellationToken)
+        private async Task<bool> HandleResponseAsync(HttpResponseMessage response, SyncFileModel file, string? albumName, CancellationToken cancellationToken)
         {
             if (response.IsSuccessStatusCode)
             {

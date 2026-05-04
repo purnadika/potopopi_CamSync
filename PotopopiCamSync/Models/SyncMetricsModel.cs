@@ -1,6 +1,6 @@
 namespace PotopopiCamSync.Models
 {
-    public class SyncMetrics
+    public class SyncMetricsModel
     {
         public int TotalFiles { get; set; }
         public int DownloadedFiles { get; set; }

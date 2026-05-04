@@ -10,7 +10,7 @@ namespace PotopopiCamSync.Tests
         [Fact]
         public void AppConfig_Serialization_Includes_NewSettings()
         {
-            var config = new AppConfig
+            var config = new AppConfigModel
             {
                 AutoAlbumEnabled = true,
                 StartMinimized = true,
@@ -18,7 +18,7 @@ namespace PotopopiCamSync.Tests
             };
             
             var json = JsonConvert.SerializeObject(config);
-            var deserialized = JsonConvert.DeserializeObject<AppConfig>(json);
+            var deserialized = JsonConvert.DeserializeObject<AppConfigModel>(json);
             
             Assert.NotNull(deserialized);
             Assert.True(deserialized.AutoAlbumEnabled);
@@ -29,7 +29,7 @@ namespace PotopopiCamSync.Tests
         [Fact]
         public void DeviceSignature_Serialization_Includes_AutoAlbum()
         {
-            var dev = new DeviceSignature
+            var dev = new DeviceSignatureModel
             {
                 Id = "DEV1",
                 ImmichAlbum = "Test Album",
@@ -37,7 +37,7 @@ namespace PotopopiCamSync.Tests
             };
             
             var json = JsonConvert.SerializeObject(dev);
-            var deserialized = JsonConvert.DeserializeObject<DeviceSignature>(json);
+            var deserialized = JsonConvert.DeserializeObject<DeviceSignatureModel>(json);
             
             Assert.NotNull(deserialized);
             Assert.Equal("Test Album", deserialized.ImmichAlbum);
