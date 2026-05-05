@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Newtonsoft.Json;
 using PotopopiCamSync.Models;
+using PotopopiCamSync.Utilities;
 
 namespace PotopopiCamSync.Repositories
 {
@@ -15,7 +16,7 @@ namespace PotopopiCamSync.Repositories
 
         public JsonSettingsRepository(string? customBasePath = null)
         {
-            string appData = customBasePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PotopopiCamSync");
+            string appData = customBasePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppConstants.General.InternalName);
             if (!Directory.Exists(appData))
             {
                 Directory.CreateDirectory(appData);

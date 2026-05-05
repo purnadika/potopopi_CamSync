@@ -41,7 +41,8 @@ public class SyncOrchestratorTests : IDisposable
         mockAi.Setup(a => a.AnalyzeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
               .ReturnsAsync(new AnalysisResultModel { BlurScore = 1000, IsPotentiallyBlurry = false });
 
-        _orchestrator = new SyncOrchestratorService(_settings, mockAi.Object, NullLogger<SyncOrchestratorService>.Instance, NullLoggerFactory.Instance);
+        var mockTokenStorage = new Mock<ITokenStorageService>();
+        _orchestrator = new SyncOrchestratorService(_settings, mockAi.Object, NullLogger<SyncOrchestratorService>.Instance, NullLoggerFactory.Instance, mockTokenStorage.Object);
         _orchestrator.OnSyncProgress += msg => _progressMessages.Add(msg);
     }
 
@@ -78,13 +79,18 @@ public class SyncOrchestratorTests : IDisposable
         };
     }
 
+    private SyncOptions MakeSyncOptions()
+    {
+        return new SyncOptions { EnableImmich = false, EnableGoogleDrive = false, EnableOneDrive = false };
+    }
+
     [Fact(Skip = "CI Stall")]
     public async Task StartSyncAsync_Exits_Early_When_No_LocalFolder()
     {
         _settings.Config.LocalBackupFolder = "";
         var mock = MakeMockDevice();
 
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
 
         Assert.Contains(_progressMessages, m => m.Contains("not configured"));
         mock.Verify(d => d.ConnectAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -96,7 +102,7 @@ public class SyncOrchestratorTests : IDisposable
         var file = MakeSyncFile("IMG_001.jpg");
         var mock = MakeMockDevice(files: new List<SyncFileModel> { file });
 
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
 
         string expectedPath = Path.Combine(_localFolder, "2026-04-26", "IMG_001.jpg");
         Assert.True(File.Exists(expectedPath));
@@ -110,7 +116,7 @@ public class SyncOrchestratorTests : IDisposable
         var mock = MakeMockDevice(files: new List<SyncFileModel> { file });
 
         // 1st Sync (Normal)
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
         string expectedPath = Path.Combine(_localFolder, "2026-04-26", "IMG_FORCE.jpg");
         Assert.True(File.Exists(expectedPath));
 
@@ -122,11 +128,11 @@ public class SyncOrchestratorTests : IDisposable
         mock.Invocations.Clear();
 
         // 2nd Sync (Normal) -> Should skip because it's in syncedSet
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
         Assert.False(File.Exists(expectedPath)); // Still missing
 
         // 3rd Sync (Force Sync) -> Should detect missing file and re-download
-        await _orchestrator.StartSyncAsync(mock.Object, forceVerify: true);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions(), forceVerify: true);
         Assert.True(File.Exists(expectedPath)); // Restored
         
         mock.Verify(d => d.DownloadToStreamAsync(It.IsAny<SyncFileModel>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -142,7 +148,7 @@ public class SyncOrchestratorTests : IDisposable
 
         var mock = MakeMockDevice(files: new List<SyncFileModel> { file });
 
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
 
         mock.Verify(d => d.DownloadToStreamAsync(It.IsAny<SyncFileModel>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -153,7 +159,7 @@ public class SyncOrchestratorTests : IDisposable
         var file = MakeSyncFile("IMG_003.jpg");
         var mock = MakeMockDevice(files: new List<SyncFileModel> { file });
 
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
 
         bool wasSynced = _settings.State.SyncedFiles.ContainsKey("dev-001") &&
                          _settings.State.SyncedFiles["dev-001"].Contains(file.GetIdentifier());
@@ -165,7 +171,7 @@ public class SyncOrchestratorTests : IDisposable
     {
         var mock = MakeMockDevice();
 
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
 
         mock.Verify(d => d.Disconnect(), Times.Once);
     }
@@ -186,7 +192,7 @@ public class SyncOrchestratorTests : IDisposable
                 throw new OperationCanceledException(cts.Token);
             });
 
-        await _orchestrator.StartSyncAsync(mock.Object, cts.Token);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions(), cts.Token);
 
         Assert.Contains(_progressMessages, m => m.Contains("cancel", StringComparison.OrdinalIgnoreCase));
     }
@@ -213,7 +219,7 @@ public class SyncOrchestratorTests : IDisposable
         var file = MakeSyncFile("IMG_006.cr2");
         var mock = MakeMockDevice(files: new List<SyncFileModel> { file });
 
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, new SyncOptions { EnableImmich = true });
 
         // Verify it was downloaded
         string localPath = Path.Combine(_localFolder, "2026-04-26", "IMG_006.cr2");
@@ -235,7 +241,7 @@ public class SyncOrchestratorTests : IDisposable
         var devSig = new DeviceSignatureModel { Id = "smart-dev", UseSmartScan = true, LastSyncDate = DateTime.Now.AddDays(-1) };
         _settings.Config.RegisteredDevices.Add(devSig);
 
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
 
         string oldPath = Path.Combine(_localFolder, oldFile.CreationTime.ToString("yyyy-MM-dd"), "OLD.jpg");
         string newPath = Path.Combine(_localFolder, newFile.CreationTime.ToString("yyyy-MM-dd"), "NEW.jpg");
@@ -249,14 +255,14 @@ public class SyncOrchestratorTests : IDisposable
     {
         var file = MakeSyncFile("BLURRY.jpg");
         var mock = MakeMockDevice(files: new List<SyncFileModel> { file });
-        
+
         // Setup AI mode to Standard (OpenCV)
         _settings.Config.AIAnalysisMode = AIAnalysisMode.Standard;
 
         string? flaggedPath = null;
         _orchestrator.OnAIResultFound += (path, reason, isBlurry) => flaggedPath = path;
 
-        await _orchestrator.StartSyncAsync(mock.Object);
+        await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
     }
 
     [Fact(Skip = "CI Stall")]
@@ -264,14 +270,14 @@ public class SyncOrchestratorTests : IDisposable
     {
         string overridePath = Path.Combine(Path.GetTempPath(), $"Override_{Guid.NewGuid()}");
         Directory.CreateDirectory(overridePath);
-        
+
         var file = MakeSyncFile("OVERRIDE.jpg");
         var mock = MakeMockDevice(deviceId: "over-dev", files: new List<SyncFileModel> { file });
         var devSig = new DeviceSignatureModel { Id = "over-dev", LocalFolderOverride = overridePath };
         _settings.Config.RegisteredDevices.Add(devSig);
 
         try {
-            await _orchestrator.StartSyncAsync(mock.Object);
+            await _orchestrator.StartSyncAsync(mock.Object, MakeSyncOptions());
             string expectedPath = Path.Combine(overridePath, "2026-04-26", "OVERRIDE.jpg");
             Assert.True(File.Exists(expectedPath));
         } finally {

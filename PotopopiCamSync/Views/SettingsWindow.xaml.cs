@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -46,6 +47,18 @@ namespace PotopopiCamSync.Views
 
             chkStartMinimized.IsChecked = config.StartMinimized;
             chkMinimizeToTray.IsChecked = config.MinimizeToTray;
+
+            // Cloud
+            chkEnableGoogleDrive.IsChecked = config.GoogleDriveAccount.IsEnabled;
+            txtGoogleFolder.Text = config.GoogleDriveAccount.TargetFolderName;
+            UpdateGoogleStatusUI();
+
+            chkEnableOneDrive.IsChecked = config.OneDriveAccount.IsEnabled;
+            txtOneDriveFolder.Text = config.OneDriveAccount.TargetFolderName;
+            UpdateOneDriveStatusUI();
+
+            txtGoogleClientId.Text = config.GoogleDriveAccount.ClientId;
+            txtOneDriveClientId.Text = config.OneDriveAccount.ClientId;
 
             // AI
             switch (config.AIAnalysisMode)
@@ -109,7 +122,7 @@ namespace PotopopiCamSync.Views
         {
             if (sender is Button btn && btn.Tag is string id)
             {
-                var acc = ImmichAccountsList.FirstOrDefault(a => a.Id == id);
+                var acc = ImmichAccountsList.FirstOrDefault(a => string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase));
                 if (acc != null) ImmichAccountsList.Remove(acc);
             }
         }
@@ -164,25 +177,89 @@ namespace PotopopiCamSync.Views
             config.StartMinimized = chkStartMinimized.IsChecked ?? false;
             config.MinimizeToTray = chkMinimizeToTray.IsChecked ?? true;
 
+            config.GoogleDriveAccount.IsEnabled = chkEnableGoogleDrive.IsChecked ?? false;
+            config.GoogleDriveAccount.TargetFolderName = txtGoogleFolder.Text;
+
+            config.OneDriveAccount.IsEnabled = chkEnableOneDrive.IsChecked ?? false;
+            config.OneDriveAccount.TargetFolderName = txtOneDriveFolder.Text;
+
+            config.GoogleDriveAccount.ClientId = txtGoogleClientId.Text;
+            config.OneDriveAccount.ClientId = txtOneDriveClientId.Text;
+
             // Save accounts
             config.ImmichAccounts = ImmichAccountsList.ToList();
 
             _settings.SaveConfig();
-            App.ServiceProvider.GetRequiredService<MainViewModel>().RefreshImmichStatus();
+            App.ServiceProvider.GetRequiredService<MainViewModel>().RefreshCloudStatus();
             Close();
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e) => Close();
         private void RefreshDevices_Click(object sender, RoutedEventArgs e) => RefreshDevicesList();
 
+        private void ToggleAdvanced_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            pnlAdvancedCloud.Visibility = pnlAdvancedCloud.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private async void LoginGoogle_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var googleService = new GoogleDriveSyncService(
+                    App.ServiceProvider.GetRequiredService<ILogger<GoogleDriveSyncService>>(),
+                    _settings.Config,
+                    App.ServiceProvider.GetRequiredService<ITokenStorageService>()
+                );
+                await googleService.InitializeAsync();
+                UpdateGoogleStatusUI();
+                if (_settings.Config.GoogleDriveAccount.IsAuthenticated)
+                    MessageBox.Show("Successfully authenticated with Google Drive!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex) { MessageBox.Show($"Google Login Failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error); }
+        }
+
+        private async void LoginOneDrive_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var oneDriveService = new OneDriveSyncService(
+                    App.ServiceProvider.GetRequiredService<ILogger<OneDriveSyncService>>(),
+                    _settings.Config,
+                    App.ServiceProvider.GetRequiredService<ITokenStorageService>()
+                );
+                await oneDriveService.InitializeAsync();
+                UpdateOneDriveStatusUI();
+                if (_settings.Config.OneDriveAccount.IsAuthenticated)
+                    MessageBox.Show("Successfully authenticated with OneDrive!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex) { MessageBox.Show($"OneDrive Login Failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error); }
+        }
+
+        private void UpdateGoogleStatusUI()
+        {
+            var acc = _settings.Config.GoogleDriveAccount;
+            txtGoogleStatus.Text = acc.IsAuthenticated ? "✓ Authenticated" : "✗ Not Authenticated";
+            txtGoogleStatus.Foreground = acc.IsAuthenticated ? System.Windows.Media.Brushes.Green : System.Windows.Media.Brushes.Red;
+            txtGoogleEmail.Text = acc.UserEmail;
+        }
+
+        private void UpdateOneDriveStatusUI()
+        {
+            var acc = _settings.Config.OneDriveAccount;
+            txtOneDriveStatus.Text = acc.IsAuthenticated ? "✓ Authenticated" : "✗ Not Authenticated";
+            txtOneDriveStatus.Foreground = acc.IsAuthenticated ? System.Windows.Media.Brushes.Green : System.Windows.Media.Brushes.Red;
+            txtOneDriveEmail.Text = acc.UserEmail;
+        }
+
         private void UnregisterDevice_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string id)
             {
-                var device = _devicesList.FirstOrDefault(d => d.Id == id);
+                var device = _devicesList.FirstOrDefault(d => string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
                 if (device != null && MessageBox.Show($"Unregister '{device.Name}'?", "Confirm", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
                 {
-                    _settings.Config.RegisteredDevices.RemoveAll(d => d.Id == id);
+                    _settings.Config.RegisteredDevices.RemoveAll(d => string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
                     _settings.SaveConfig();
                     RefreshDevicesList();
                 }

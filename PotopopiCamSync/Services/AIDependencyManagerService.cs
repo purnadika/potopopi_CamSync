@@ -18,6 +18,7 @@ namespace PotopopiCamSync.Services
         private const string RepoOwner = "purnadika";
         private const string RepoName = "potopopi_CamSync";
         private const string ExpectedDll = "OpenCvSharpExtern.dll";
+        private const string InstallationMarkerFile = ".ai_installed";
 
         public AIDependencyManagerService(ILogger<AIDependencyManagerService> logger)
         {
@@ -29,13 +30,36 @@ namespace PotopopiCamSync.Services
         public bool IsInstalled()
         {
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
-            return File.Exists(Path.Combine(appDir, ExpectedDll));
+
+            // Check for marker file first (most reliable)
+            string markerFile = Path.Combine(appDir, InstallationMarkerFile);
+            if (File.Exists(markerFile))
+            {
+                _logger.LogDebug("AI modules marked as installed (marker file found).");
+                return true;
+            }
+
+            // Fallback: Check for actual DLL files
+            string dllPath = Path.Combine(appDir, ExpectedDll);
+            if (File.Exists(dllPath))
+            {
+                _logger.LogDebug("AI modules detected (DLL file found). Creating marker file.");
+                try
+                {
+                    File.WriteAllText(markerFile, "installed");
+                }
+                catch { /* Ignore marker file creation failure */ }
+                return true;
+            }
+
+            return false;
         }
 
         public async Task DownloadAndInstallAsync(IProgress<double> progress, CancellationToken ct)
         {
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
             string tempZipFile = Path.Combine(appDir, "AI_Dependencies_temp.zip");
+            string markerFile = Path.Combine(appDir, InstallationMarkerFile);
 
             try
             {
@@ -44,13 +68,13 @@ namespace PotopopiCamSync.Services
                 // 1. Get latest release from GitHub API
                 string apiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
                 _logger.LogInformation($"Fetching latest release from {apiUrl}");
-                
+
                 var response = await _httpClient.GetAsync(apiUrl, ct);
                 response.EnsureSuccessStatusCode();
-                
+
                 string json = await response.Content.ReadAsStringAsync(ct);
                 var releaseInfo = JObject.Parse(json);
-                
+
                 var assets = releaseInfo["assets"] as JArray;
                 if (assets == null) throw new Exception("No assets found in the latest release.");
 
@@ -91,6 +115,18 @@ namespace PotopopiCamSync.Services
                 await Task.Run(() => ZipFile.ExtractToDirectory(tempZipFile, appDir, overwriteFiles: true), ct);
 
                 progress.Report(100);
+
+                // 4. Create marker file to indicate successful installation
+                try
+                {
+                    File.WriteAllText(markerFile, "installed");
+                    _logger.LogInformation("Installation marker file created.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to create installation marker file, but extraction succeeded.");
+                }
+
                 _logger.LogInformation("AI dependencies installed successfully.");
             }
             finally

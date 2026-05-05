@@ -18,6 +18,10 @@ namespace PotopopiCamSync.Models
         // New Multi-Account support
         public List<ImmichAccountModel> ImmichAccounts { get; set; } = new();
 
+        // Multi-Cloud support
+        public GoogleDriveAccountModel GoogleDriveAccount { get; set; } = new();
+        public OneDriveAccountModel OneDriveAccount { get; set; } = new();
+
         // AI Config
         public AIAnalysisMode AIAnalysisMode { get; set; } = AIAnalysisMode.Standard;
 

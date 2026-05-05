@@ -9,16 +9,23 @@ using Microsoft.Extensions.Logging;
 using PotopopiCamSync.Models;
 using PotopopiCamSync.Repositories;
 using PotopopiCamSync.Utilities;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace PotopopiCamSync.Services
 {
+    public class SyncOptions
+    {
+        public bool EnableImmich { get; set; }
+        public bool EnableGoogleDrive { get; set; }
+        public bool EnableOneDrive { get; set; }
+    }
+
     public class SyncOrchestratorService
     {
         private readonly ISettingsRepository _settingsRepository;
         private readonly IMediaAnalyzer _mediaAnalyzer;
         private readonly ILogger<SyncOrchestratorService> _logger;
         private readonly ILoggerFactory _loggerFactory;
+        private readonly ITokenStorageService _tokenStorage;
 
         // Untuk parallel pipeline
         private class SyncFileJob
@@ -34,15 +41,16 @@ namespace PotopopiCamSync.Services
         public event Action<string, string, bool>? OnAIResultFound; // LocalPath, Reason, IsBlurry
 
 
-        public SyncOrchestratorService(ISettingsRepository settingsRepository, IMediaAnalyzer mediaAnalyzer, ILogger<SyncOrchestratorService> logger, ILoggerFactory loggerFactory)
+        public SyncOrchestratorService(ISettingsRepository settingsRepository, IMediaAnalyzer mediaAnalyzer, ILogger<SyncOrchestratorService> logger, ILoggerFactory loggerFactory, ITokenStorageService tokenStorage)
         {
             _settingsRepository = settingsRepository;
             _mediaAnalyzer = mediaAnalyzer;
             _logger = logger;
             _loggerFactory = loggerFactory;
+            _tokenStorage = tokenStorage;
         }
 
-        public async Task StartSyncAsync(IDeviceProvider device, CancellationToken cancellationToken = default, bool forceVerify = false)
+        public async Task StartSyncAsync(IDeviceProvider device, SyncOptions options, CancellationToken cancellationToken = default, bool forceVerify = false)
         {
             var metrics = new SyncMetricsModel { StartTime = DateTime.UtcNow };
             try
@@ -51,22 +59,22 @@ namespace PotopopiCamSync.Services
 
                 if (string.IsNullOrWhiteSpace(config.LocalBackupFolder))
                 {
-                    Progress("Local Backup Folder is not configured. Please set it in Settings.");
+                    Progress(MessageConstants.General.LocalBackupFolderNotSet);
                     return;
                 }
 
                 if (!ValidateDiskSpace(config.LocalBackupFolder)) return;
 
-                Progress($"Connecting to {device.DeviceName}...");
+                Progress(string.Format(MessageConstants.Sync.ConnectingToDevice, device.DeviceName));
                 await device.ConnectAsync(cancellationToken);
 
                 if (!device.IsConnected)
                 {
-                    Progress("Failed to connect to device.");
+                    Progress(MessageConstants.General.FailedToConnect);
                     return;
                 }
 
-                Progress("Scanning for files...");
+                Progress(MessageConstants.General.ScanningFiles);
                 var allFiles = await device.GetFilesAsync(cancellationToken, msg => Progress(msg));
 
                 
@@ -74,16 +82,15 @@ namespace PotopopiCamSync.Services
                 var filteredFiles = allFiles.Where(f => !fileFilter.ShouldExclude(f.FileName)).ToList();
 
                 // Smart Scan
-                var deviceConfig = config.RegisteredDevices.FirstOrDefault(d => d.Id == device.DeviceId);
+                var deviceConfig = config.RegisteredDevices.FirstOrDefault(d => string.Equals(d.Id, device.DeviceId, StringComparison.OrdinalIgnoreCase));
                 if (deviceConfig?.UseSmartScan == true && deviceConfig.LastSyncDate.HasValue)
                 {
                     var since = deviceConfig.LastSyncDate.Value.AddHours(-1);
-                    filteredFiles = filteredFiles.Where(f => f.CreationTime > since).ToList();
-                    Progress($"Smart Scan: {filteredFiles.Count} new file(s) found.");
+                    Progress(string.Format(MessageConstants.Sync.SmartScanFound, filteredFiles.Count));
                 }
                 else
                 {
-                    Progress($"Scan complete. Found {filteredFiles.Count} file(s).");
+                    Progress(string.Format(MessageConstants.Sync.ScanCompleteWithCount, filteredFiles.Count));
                 }
 
                 var state = _settingsRepository.State;
@@ -99,7 +106,7 @@ namespace PotopopiCamSync.Services
                 OnMetricsUpdated?.Invoke(metrics);
 
                 var uploadQueue = new BlockingCollection<SyncFileJob>(boundedCapacity: 5);
-                var uploadTask = RunUploadPipelineAsync(device, uploadQueue, metrics, syncedSet, cancellationToken);
+                var uploadTask = RunUploadPipelineAsync(device, options, uploadQueue, metrics, syncedSet, cancellationToken);
 
                 try
                 {
@@ -116,12 +123,12 @@ namespace PotopopiCamSync.Services
                             if (!File.Exists(localPath) || new FileInfo(localPath).Length != file.Size)
                             {
                                 shouldSync = true;
-                                Progress($"  [Force Sync] Re-downloading missing/incomplete file: {file.FileName}");
+                                Progress(string.Format(MessageConstants.Sync.ForceSyncRedownload, file.FileName));
                             }
                         }
 
                         if (!shouldSync) continue;
-                        Progress($"[{++processedCount}/{filteredFiles.Count}] Downloading to Local: {file.FileName}");
+                        Progress(string.Format(MessageConstants.Sync.ProgressDownload, ++processedCount, filteredFiles.Count, file.FileName));
 
                         Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
 
@@ -137,12 +144,12 @@ namespace PotopopiCamSync.Services
                                 var aiEngine = _mediaAnalyzer;
                                 if (aiEngine != null)
                                 {
-                                    Progress($"  → [AI Analysis] {file.FileName}");
+                                    Progress(string.Format(MessageConstants.Sync.AIAnalysisStart, file.FileName));
                                     var analysis = await aiEngine.AnalyzeAsync(localPath, cancellationToken);
                                     if (analysis.IsPotentiallyBlurry)
                                     {
                                         metrics.BlurryFiles++;
-                                        Progress($"  ⚠ [AI] {file.FileName} looks blurry ({analysis.BlurScore:F0})");
+                                        Progress(string.Format(MessageConstants.Sync.AIAnalysisBlurry, file.FileName, analysis.BlurScore));
                                         OnAIResultFound?.Invoke(localPath, "Blurry", true);
                                         OnMetricsUpdated?.Invoke(metrics);
                                         isRejectedByAI = true;
@@ -158,7 +165,7 @@ namespace PotopopiCamSync.Services
 
                             if (isRejectedByAI && !state.AllowedAIRejectedFiles.Contains(localPath))
                             {
-                                Progress($"  ✗ Skipping Immich upload (AI Rejection). Local copy saved.");
+                                Progress(MessageConstants.Sync.AISkippingImmich);
                             }
                             else
                             {
@@ -181,10 +188,10 @@ namespace PotopopiCamSync.Services
                 }
 
                 device.Disconnect();
-                Progress($"✓ Process complete. {metrics.UploadedFiles} file(s) uploaded to Immich.");
+                Progress($"{MessageConstants.General.SyncComplete} {metrics.UploadedFiles} file(s) uploaded to {CloudConstants.Immich.ProviderName}.");
                 OnSyncCompleted?.Invoke(device);
             }
-            catch (OperationCanceledException) { Progress("Sync cancelled."); device.Disconnect(); }
+            catch (OperationCanceledException) { Progress(MessageConstants.General.SyncCancelled); device.Disconnect(); }
             catch (Exception ex) { _logger.LogError(ex, "Sync error"); Progress($"Error: {ex.Message}"); }
         }
 
@@ -224,12 +231,40 @@ namespace PotopopiCamSync.Services
             return false;
         }
 
-        private Task RunUploadPipelineAsync(IDeviceProvider device, BlockingCollection<SyncFileJob> queue, SyncMetricsModel metrics, HashSet<string> syncedSet, CancellationToken ct)
+        private Task RunUploadPipelineAsync(IDeviceProvider device, SyncOptions options, BlockingCollection<SyncFileJob> queue, SyncMetricsModel metrics, HashSet<string> syncedSet, CancellationToken ct)
         {
             return Task.Run(async () =>
             {
                 var config = _settingsRepository.Config;
-                var immichFilter = new FileFilter(config.ImmichExclusionPatterns);
+                // Prepare destinations
+                var destinations = new List<ISyncDestination>();
+                
+                if (options.EnableImmich && config.EnableImmichSync)
+                {
+                    var deviceId = device.DeviceId;
+                    var deviceConfig = config.RegisteredDevices.FirstOrDefault(d => string.Equals(d.Id, deviceId, StringComparison.OrdinalIgnoreCase));
+                    var accountId = deviceConfig?.ImmichAccountId;
+                    var account = config.ImmichAccounts.FirstOrDefault(a => string.Equals(a.Id, accountId, StringComparison.OrdinalIgnoreCase)) 
+                                  ?? new ImmichAccountModel { Url = config.ImmichUrl, ApiKey = config.ImmichApiKey };
+                    
+                    if (!string.IsNullOrEmpty(account.Url) && !string.IsNullOrEmpty(account.ApiKey))
+                    {
+                        destinations.Add(new ImmichSyncService(account.Url, account.ApiKey, device.DeviceId, CreateLogger<ImmichSyncService>()));
+                    }
+                }
+
+                // Add Google Drive if enabled
+                if (options.EnableGoogleDrive && config.GoogleDriveAccount.IsEnabled && config.GoogleDriveAccount.IsAuthenticated)
+                {
+                    destinations.Add(new GoogleDriveSyncService(_loggerFactory.CreateLogger<GoogleDriveSyncService>(), config, _tokenStorage));
+                }
+
+                // Add OneDrive if enabled
+                if (options.EnableOneDrive && config.OneDriveAccount.IsEnabled && config.OneDriveAccount.IsAuthenticated)
+                {
+                    destinations.Add(new OneDriveSyncService(_loggerFactory.CreateLogger<OneDriveSyncService>(), config, _tokenStorage));
+                }
+
                 int uploadedFiles = 0;
                 int failedFiles = 0;
 
@@ -239,61 +274,36 @@ namespace PotopopiCamSync.Services
                     {
                         if (ct.IsCancellationRequested) break;
 
-                        bool immichOk = true;
-                        if (config.EnableImmichSync)
+                        bool allOk = true;
+                        foreach (var destination in destinations)
                         {
-                            var accountId = config.RegisteredDevices.FirstOrDefault(d => d.Id == device.DeviceId)?.ImmichAccountId;
-                            var account = config.ImmichAccounts.FirstOrDefault(a => a.Id == accountId) 
-                                         ?? new ImmichAccountModel { Url = config.ImmichUrl, ApiKey = config.ImmichApiKey };
+                            if (!destination.IsEnabled) continue;
 
-                            if (string.IsNullOrEmpty(account.Url) || string.IsNullOrEmpty(account.ApiKey))
+                            Progress(string.Format(MessageConstants.Sync.UploadingToDestination, destination.Name, job.File.FileName));
+                            bool ok = await destination.UploadAsync(job.File, job.LocalPath, ct);
+                            if (!ok)
                             {
-                                Progress("  ✗ Immich account not configured.");
-                                immichOk = false;
-                            }
-                            else if (immichFilter.ShouldExclude(job.File.FileName))
-                            {
-                                Progress($"  → [Immich Skip] {job.File.FileName}");
-                                immichOk = true;
-                            }
-                            else
-                            {
-                                Progress($"  → [Immich Upload] {job.File.FileName}");
-                                var immichSync = new ImmichSyncService(account.Url, account.ApiKey, device.DeviceId, CreateLogger<ImmichSyncService>());
-                                
-                                if (!await immichSync.PingAsync(ct))
-                                {
-                                    Progress("  ✗ Immich Server Inaccessible or Down.");
-                                    immichOk = false;
-                                }
-                                else
-                                {
-                                    var deviceConfig = config.RegisteredDevices.FirstOrDefault(d => d.Id == device.DeviceId);
-                                    
-                                    string? albumName = null;
-                                    if (config.AutoAlbumEnabled && deviceConfig?.AutoAlbumEnabled != false)
-                                    {
-                                        albumName = string.IsNullOrWhiteSpace(deviceConfig?.ImmichAlbum) ? device.DeviceName : deviceConfig.ImmichAlbum;
-                                    }
-
-                                    immichOk = await immichSync.UploadAsync(job.File, job.LocalPath, albumName, ct);
-                                }
+                                Progress(string.Format(MessageConstants.Sync.UploadFailed, destination.Name, job.File.FileName));
+                                allOk = false;
                             }
                         }
 
-                        if (immichOk)
-                    {
-                        metrics.UploadedFiles = Interlocked.Increment(ref uploadedFiles);
-                        metrics.BytesUploaded += job.File.Size;
-                        syncedSet.Add(job.File.GetIdentifier());
-                        _settingsRepository.SaveState();
-                        OnMetricsUpdated?.Invoke(metrics);
+                        if (allOk)
+                        {
+                            metrics.UploadedFiles = Interlocked.Increment(ref uploadedFiles);
+                            metrics.BytesUploaded += job.File.Size;
+                            syncedSet.Add(job.File.GetIdentifier());
+                            _settingsRepository.SaveState();
+                            OnMetricsUpdated?.Invoke(metrics);
+                        }
+                        else
+                        {
+                            metrics.FailedFiles = Interlocked.Increment(ref failedFiles);
+                        }
                     }
-                    else { metrics.FailedFiles = Interlocked.Increment(ref failedFiles); }
                 }
-            }
-            catch (OperationCanceledException) { _logger.LogInformation("Upload pipeline stopped via cancellation."); }
-            catch (Exception ex) { _logger.LogError(ex, "Critical error in upload pipeline."); }
+                catch (OperationCanceledException) { _logger.LogInformation("Upload pipeline stopped via cancellation."); }
+                catch (Exception ex) { _logger.LogError(ex, "Critical error in upload pipeline."); }
             }, ct);
         }
 
@@ -303,16 +313,15 @@ namespace PotopopiCamSync.Services
         {
             // Update this later if needed
             var config = _settingsRepository.Config;
-            if (string.IsNullOrWhiteSpace(config.LocalBackupFolder)) { Progress("Local Backup Folder not set."); return; }
-            if (!config.EnableImmichSync || string.IsNullOrEmpty(config.ImmichUrl) || string.IsNullOrEmpty(config.ImmichApiKey)) { Progress("Immich not set."); return; }
-            const string sourceId = "__local_backup__";
+            if (string.IsNullOrWhiteSpace(config.LocalBackupFolder)) { Progress(MessageConstants.General.LocalBackupFolderNotSet); return; }
+            if (!config.EnableImmichSync || string.IsNullOrEmpty(config.ImmichUrl) || string.IsNullOrEmpty(config.ImmichApiKey)) { Progress(MessageConstants.Sync.ImmichNotSet); return; }
             var state = _settingsRepository.State;
-            if (!state.SyncedFiles.ContainsKey(sourceId)) state.SyncedFiles[sourceId] = new HashSet<string>();
-            var syncedSet = state.SyncedFiles[sourceId];
-            var immichSync = new ImmichSyncService(config.ImmichUrl, config.ImmichApiKey, "local-backup", CreateLogger<ImmichSyncService>());
+            if (!state.SyncedFiles.ContainsKey(AppConstants.Identifiers.LocalBackupSourceId)) state.SyncedFiles[AppConstants.Identifiers.LocalBackupSourceId] = new HashSet<string>();
+            var syncedSet = state.SyncedFiles[AppConstants.Identifiers.LocalBackupSourceId];
+            var immichSync = new ImmichSyncService(config.ImmichUrl, config.ImmichApiKey, AppConstants.Identifiers.LocalBackupAccountId, CreateLogger<ImmichSyncService>());
             if (!await immichSync.PingAsync(cancellationToken))
             {
-                Progress("✗ Immich Server Inaccessible or Down.");
+                Progress(MessageConstants.General.ImmichInaccessible);
                 return;
             }
             
@@ -326,7 +335,7 @@ namespace PotopopiCamSync.Services
             };
             OnMetricsUpdated?.Invoke(metrics);
 
-            Progress($"Found {localFiles.Count} file(s). Uploading to Immich...");
+            Progress(string.Format(MessageConstants.Sync.LocalToImmichFound, localFiles.Count, CloudConstants.Immich.ProviderName));
             int count = 0;
             var immichFilter = new FileFilter(config.ImmichExclusionPatterns);
             foreach (var localPath in localFiles)
@@ -350,12 +359,12 @@ namespace PotopopiCamSync.Services
 
                 if (isRejectedByAI && !state.AllowedAIRejectedFiles.Contains(localPath))
                 {
-                    Progress($"  ✗ Skipping {info.Name} (AI Rejection). Not whitelisted.");
+                    Progress(string.Format(MessageConstants.Sync.LocalToImmichSkippingAI, info.Name));
                     continue;
                 }
 
                 var syncFile = new SyncFileModel { OriginalPath = localPath, FileName = info.Name, Size = info.Length, CreationTime = info.LastWriteTime, RelativePath = info.Name };
-                Progress($"[{++count}] → Immich Upload: {info.Name}");
+                Progress(string.Format(MessageConstants.Sync.LocalToImmichProgress, ++count, CloudConstants.Immich.ProviderName, info.Name));
                 bool ok = await immichSync.UploadAsync(syncFile, localPath, null, cancellationToken);
                 if (ok) 
                 { 
@@ -366,12 +375,12 @@ namespace PotopopiCamSync.Services
                 }
                 else 
                 { 
-                    Progress($"  ✗ Failed: {info.Name}"); 
+                    Progress(string.Format(MessageConstants.Sync.LocalToImmichFailed, info.Name)); 
                     metrics.FailedFiles++;
                 }
                 OnMetricsUpdated?.Invoke(metrics);
             }
-            Progress($"✓ Local→Immich upload complete.");
+            Progress(string.Format(MessageConstants.Sync.LocalToImmichComplete, CloudConstants.Immich.ProviderName));
         }
 
         private void Progress(string msg) => OnSyncProgress?.Invoke(msg);
@@ -382,7 +391,7 @@ namespace PotopopiCamSync.Services
             {
                 var drive = new DriveInfo(Path.GetPathRoot(targetPath)!);
                 const long minRequiredBytes = 100 * 1024 * 1024;
-                if (drive.AvailableFreeSpace < minRequiredBytes) { Progress($"⚠ Insufficient disk space."); return false; }
+                if (drive.AvailableFreeSpace < minRequiredBytes) { Progress(MessageConstants.General.DiskSpaceInsufficient); return false; }
                 return true;
             }
             catch { return true; }

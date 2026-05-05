@@ -112,6 +112,77 @@
                 </ScrollViewer>
             </TabItem>
 
+            <!-- Cloud Settings -->
+            <TabItem Header="Cloud Services">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="10">
+                    <StackPanel>
+                        <TextBlock Text="Cloud Storage Integration" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+                        
+                        <!-- Google Drive -->
+                        <Border BorderBrush="#DCDDE1" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,0,20">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="Google Drive" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                                    <CheckBox Name="chkEnableGoogleDrive" Margin="15,0,0,0" VerticalAlignment="Center" Content="Enabled"/>
+                                </StackPanel>
+                                
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Status:" Foreground="Gray" FontSize="11"/>
+                                        <TextBlock Name="txtGoogleStatus" Text="Not Authenticated" FontWeight="SemiBold" Foreground="#E74C3C"/>
+                                        <TextBlock Name="txtGoogleEmail" Text="" FontSize="11" Foreground="Gray"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="Login to Google" Click="LoginGoogle_Click" Padding="15,8" Background="#4285F4" Foreground="White" BorderThickness="0" FontWeight="Bold"/>
+                                </Grid>
+
+                                <TextBlock Text="Target Folder Name:" Margin="0,5,0,5"/>
+                                <TextBox Name="txtGoogleFolder" Padding="8"/>
+                                <TextBlock Text="Folder will be created in your root directory." FontSize="11" Foreground="Gray" Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- OneDrive -->
+                        <Border BorderBrush="#DCDDE1" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,0,10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="OneDrive" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                                    <CheckBox Name="chkEnableOneDrive" Margin="15,0,0,0" VerticalAlignment="Center" Content="Enabled"/>
+                                </StackPanel>
+
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Status:" Foreground="Gray" FontSize="11"/>
+                                        <TextBlock Name="txtOneDriveStatus" Text="Not Authenticated" FontWeight="SemiBold" Foreground="#E74C3C"/>
+                                        <TextBlock Name="txtOneDriveEmail" Text="" FontSize="11" Foreground="Gray"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="Login to Microsoft" Click="LoginOneDrive_Click" Padding="15,8" Background="#0078D4" Foreground="White" BorderThickness="0" FontWeight="Bold"/>
+                                </Grid>
+
+                                <TextBlock Text="Target Folder Name:" Margin="0,5,0,5"/>
+                                <TextBox Name="txtOneDriveFolder" Padding="8"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <TextBlock Text="Advanced: Custom Client IDs" Margin="0,15,0,5" Foreground="Gray" FontSize="11" TextDecorations="Underline" Cursor="Hand" MouseLeftButtonDown="ToggleAdvanced_Click"/>
+                        <StackPanel Name="pnlAdvancedCloud" Visibility="Collapsed">
+                             <TextBlock Text="If you want to use your own Google/Microsoft developer project." FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+                             <TextBlock Text="Google Client ID:" FontSize="11"/>
+                             <TextBox Name="txtGoogleClientId" Padding="5" Margin="0,0,0,5"/>
+                             <TextBlock Text="Microsoft Client ID:" FontSize="11"/>
+                             <TextBox Name="txtOneDriveClientId" Padding="5"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- Registered Devices -->
             <TabItem Header="Devices">
                 <Grid Margin="10">

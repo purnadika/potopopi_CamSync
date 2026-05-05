@@ -4,6 +4,7 @@ using PotopopiCamSync.Services;
 using PotopopiCamSync.Repositories;
 using PotopopiCamSync.ViewModels;
 using PotopopiCamSync.Views;
+using PotopopiCamSync.Utilities;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -23,13 +24,18 @@ namespace PotopopiCamSync
         public App()
         {
             _host = Host.CreateDefaultBuilder()
-                .ConfigureLogging(logging =>
-                {
-                    logging.ClearProviders();
-                    logging.AddProvider(new FileLoggerProvider());
-                })
                 .ConfigureServices((context, services) =>
                 {
+                    var fileLoggerProvider = new FileLoggerProvider();
+                    services.AddSingleton(fileLoggerProvider);
+
+                    services.AddLogging(logging =>
+                    {
+                        logging.ClearProviders();
+                        logging.AddProvider(fileLoggerProvider);
+                    });
+
+                    services.AddSingleton<ITokenStorageService, SecureTokenStorageService>();
                     services.AddSingleton<ISettingsRepository, JsonSettingsRepository>();
                     services.AddSingleton<HardwareDetectionService>();
                     services.AddSingleton<AIEngineService>();
@@ -62,26 +68,23 @@ namespace PotopopiCamSync
             }
             catch { }
 
-            const string appName = "PotopopiCamSync_SingleInstanceMutex";
-            const string eventName = "PotopopiCamSync_ShowWindowEvent";
-            
-            _mutex = new System.Threading.Mutex(true, appName, out bool createdNew);
+            _mutex = new System.Threading.Mutex(true, AppConstants.General.MutexName, out bool createdNew);
 
             if (!createdNew)
             {
                 try
                 {
-                    var existingEvent = System.Threading.EventWaitHandle.OpenExisting(eventName);
+                    var existingEvent = System.Threading.EventWaitHandle.OpenExisting(AppConstants.General.ShowWindowEventName);
                     existingEvent.Set();
                 }
                 catch { }
 
-                MessageBox.Show("Potopopi CamSync is already running!", "Already Running", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(MessageConstants.General.AlreadyRunning, AppConstants.General.AlreadyRunningTitle, MessageBoxButton.OK, MessageBoxImage.Information);
                 Current.Shutdown();
                 return;
             }
 
-            _instanceEvent = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, eventName);
+            _instanceEvent = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, AppConstants.General.ShowWindowEventName);
             System.Threading.ThreadPool.RegisterWaitForSingleObject(_instanceEvent, 
                 (state, timeout) => Dispatcher.Invoke(() => ShowMainWindow()), null, -1, false);
 
@@ -95,16 +98,16 @@ namespace PotopopiCamSync
             // Initialize System Tray Icon
             _notifyIcon = new TaskbarIcon
             {
-                ToolTipText = "Potopopi CamSync",
+                ToolTipText = AppConstants.General.TrayTitle,
                 Icon = Icon.ExtractAssociatedIcon(System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "") ?? SystemIcons.Information
             };
             
             _notifyIcon.TrayLeftMouseDown += (s, args) => ShowMainWindow();
 
             var contextMenu = new System.Windows.Controls.ContextMenu();
-            var openItem = new System.Windows.Controls.MenuItem { Header = "Open Dashboard", FontWeight = FontWeights.Bold };
+            var openItem = new System.Windows.Controls.MenuItem { Header = AppConstants.MenuItems.OpenDashboard, FontWeight = FontWeights.Bold };
             openItem.Click += (s, args) => ShowMainWindow();
-            var exitItem = new System.Windows.Controls.MenuItem { Header = "Exit" };
+            var exitItem = new System.Windows.Controls.MenuItem { Header = AppConstants.MenuItems.Exit };
             exitItem.Click += async (s, args) => 
             {
                 _notifyIcon.Dispose();
@@ -120,7 +123,7 @@ namespace PotopopiCamSync
             // Handle background notifications from services
             deviceMonitor.OnDeviceConnected += (device) => 
             {
-                ShowNotification("Device Connected", $"Detected {device.DeviceName}. Starting sync...");
+                ShowNotification(AppConstants.General.DeviceConnectedTitle, $"Detected {device.DeviceName}. Starting sync...");
             };
 
             // Start monitor
@@ -136,7 +139,7 @@ namespace PotopopiCamSync
             }
             else
             {
-                ShowNotification("Running in Background", "Potopopi CamSync is active in the system tray.");
+                ShowNotification(AppConstants.General.RunningBackgroundTitle, MessageConstants.General.RunningBackground);
             }
         }
 

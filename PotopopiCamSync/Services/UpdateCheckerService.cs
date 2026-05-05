@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Reflection;
 using System.Net.Http;
+using PotopopiCamSync.Utilities;
 
 namespace PotopopiCamSync.Services;
 
@@ -40,7 +41,7 @@ public class UpdateCheckerService
             cts.CancelAfter(TimeSpan.FromSeconds(5)); // 5s timeout
 
             var request = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-            request.Headers.Add("User-Agent", "PotopopiCamSync");
+            request.Headers.Add("User-Agent", $"{AppConstants.General.InternalName}/{AppConstants.General.AppVersion}");
 
             using var response = await _httpClient.SendAsync(request, cts.Token);
 

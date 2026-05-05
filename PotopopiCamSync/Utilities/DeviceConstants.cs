@@ -1,4 +1,6 @@
-namespace PotopopiCamSync.Models
+using System;
+
+namespace PotopopiCamSync.Utilities
 {
     public static class DeviceConstants
     {

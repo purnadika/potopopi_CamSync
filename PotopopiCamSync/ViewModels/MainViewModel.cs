@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -12,6 +11,7 @@ using PotopopiCamSync.Services;
 using PotopopiCamSync.Repositories;
 using PotopopiCamSync.Views;
 using PotopopiCamSync.Models;
+using PotopopiCamSync.Utilities;
 
 namespace PotopopiCamSync.ViewModels
 {
@@ -35,6 +35,24 @@ namespace PotopopiCamSync.ViewModels
 
         [ObservableProperty]
         private bool _immichConfigured;
+
+        [ObservableProperty]
+        private bool _googleDriveAuthenticated;
+
+        [ObservableProperty]
+        private bool _oneDriveAuthenticated;
+
+        [ObservableProperty]
+        private bool _isImmichSelected = true;
+
+        [ObservableProperty]
+        private bool _isGoogleDriveSelected = false;
+
+        [ObservableProperty]
+        private bool _isOneDriveSelected = false;
+        
+        [ObservableProperty]
+        private bool _isCloudConfigured;
 
         [ObservableProperty]
         private bool _showAnalysisResults;
@@ -67,7 +85,7 @@ namespace PotopopiCamSync.ViewModels
             _deviceMonitor.OnDeviceConnected += OnDeviceConnected;
 
             _deviceMonitor.Start();
-            RefreshImmichStatus();
+            RefreshCloudStatus();
 
             foreach (var log in _settingsRepository.State.PersistentLogs)
             {
@@ -84,24 +102,43 @@ namespace PotopopiCamSync.ViewModels
             Log($"Restored {Logs.Count} log(s) and {FlaggedFiles.Count} AI result(s) from previous session.");
         }
 
-        public void RefreshImmichStatus()
+        public void RefreshCloudStatus()
         {
             var c = _settingsRepository.Config;
             ImmichConfigured = c.EnableImmichSync && (!string.IsNullOrEmpty(c.ImmichUrl) || c.ImmichAccounts.Any());
+            GoogleDriveAuthenticated = c.GoogleDriveAccount.IsAuthenticated;
+            OneDriveAuthenticated = c.OneDriveAccount.IsAuthenticated;
+
+            // Auto-select if authenticated but nothing selected? Or keep user preference.
+            // For now, just ensure selection is only possible if authenticated.
+            if (!GoogleDriveAuthenticated) IsGoogleDriveSelected = false;
+            if (!OneDriveAuthenticated) IsOneDriveSelected = false;
+
+            IsCloudConfigured = ImmichConfigured || GoogleDriveAuthenticated || OneDriveAuthenticated;
         }
 
         [RelayCommand]
         private void ManualSync(IDeviceProvider device)
         {
             if (device == null || IsSyncing) return;
-            StartSync(() => _orchestrator.StartSyncAsync(device, GetNewToken(), forceVerify: false));
+            StartSync(() => _orchestrator.StartSyncAsync(device, GetSyncOptions(), GetNewToken(), forceVerify: false));
         }
 
         [RelayCommand]
         private void ForceSync(IDeviceProvider device)
         {
             if (device == null || IsSyncing) return;
-            StartSync(() => _orchestrator.StartSyncAsync(device, GetNewToken(), forceVerify: true));
+            StartSync(() => _orchestrator.StartSyncAsync(device, GetSyncOptions(), GetNewToken(), forceVerify: true));
+        }
+
+        private SyncOptions GetSyncOptions()
+        {
+            return new SyncOptions
+            {
+                EnableImmich = IsImmichSelected,
+                EnableGoogleDrive = IsGoogleDriveSelected,
+                EnableOneDrive = IsOneDriveSelected
+            };
         }
 
         [RelayCommand]
@@ -147,7 +184,7 @@ namespace PotopopiCamSync.ViewModels
                 
                 // After sync, remove successfully uploaded files from FlaggedFiles
                 var state = _settingsRepository.State;
-                var sourceId = "__local_backup__";
+                var sourceId = AppConstants.Identifiers.LocalBackupSourceId;
                 if (state.SyncedFiles.TryGetValue(sourceId, out var syncedSet))
                 {
                     var uploadedFlagged = FlaggedFiles.Where(f => syncedSet.Contains(f.Path.ToUpperInvariant())).ToList();
@@ -315,16 +352,16 @@ namespace PotopopiCamSync.ViewModels
         private void OnDeviceConnected(IDeviceProvider device)
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() => {
-                bool isRegistered = _settingsRepository.Config.RegisteredDevices.Any(d => d.Id == device.DeviceId);
+                bool isRegistered = _settingsRepository.Config.RegisteredDevices.Any(d => string.Equals(d.Id, device.DeviceId, StringComparison.OrdinalIgnoreCase));
                 if (isRegistered)
                 {
-                    if (!ActiveDevices.Any(d => d.DeviceId == device.DeviceId)) ActiveDevices.Add(device);
+                    if (!ActiveDevices.Any(d => string.Equals(d.DeviceId, device.DeviceId, StringComparison.OrdinalIgnoreCase))) ActiveDevices.Add(device);
                     Log($"Registered device {device.DeviceName} detected. Auto-syncing...");
                     ManualSync(device);
                 }
                 else
                 {
-                    if (!UnregisteredDevices.Any(d => d.DeviceId == device.DeviceId)) UnregisteredDevices.Add(device);
+                    if (!UnregisteredDevices.Any(d => string.Equals(d.DeviceId, device.DeviceId, StringComparison.OrdinalIgnoreCase))) UnregisteredDevices.Add(device);
                 }
             });
         }
@@ -333,7 +370,7 @@ namespace PotopopiCamSync.ViewModels
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() => {
                 var model = new FlaggedFileModel { Path = path, Reason = reason, IsBlurry = isBlurry };
-                if (!FlaggedFiles.Any(f => f.Path == path))
+                if (!FlaggedFiles.Any(f => string.Equals(f.Path, path, StringComparison.OrdinalIgnoreCase)))
                 {
                     FlaggedFiles.Add(model);
                     _settingsRepository.State.PersistentFlaggedFiles.Add(model);
@@ -374,7 +411,7 @@ namespace PotopopiCamSync.ViewModels
                 IsSyncing = false;
                 StatusText = "Done. Ready for next device.";
                 Log($"Sync completed: {device.DisplayName}");
-                App.ShowTrayNotification("Sync Complete", $"Successfully synced device {device.DisplayName}");
+                App.ShowTrayNotification(AppConstants.General.SyncCompleteTitle, $"Successfully synced device {device.DisplayName}");
             });
         }
 

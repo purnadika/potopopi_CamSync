@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace PotopopiCamSync.Models
+namespace PotopopiCamSync.Utilities
 {
     public static class FileConstants
     {
@@ -14,6 +14,5 @@ namespace PotopopiCamSync.Models
         {
             ".jpg", ".jpeg", ".png", ".heic", ".cr2", ".cr3", ".nef", ".arw", ".dng"
         };
-
     }
 }

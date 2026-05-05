@@ -11,6 +11,9 @@ namespace PotopopiCamSync.Services
     {
         private readonly string _targetFolder;
         private readonly ILogger<LocalFolderSyncService> _logger;
+        
+        public string Name => "Local Folder";
+        public bool IsEnabled => !string.IsNullOrEmpty(_targetFolder);
 
         public LocalFolderSyncService(string targetFolder, ILogger<LocalFolderSyncService> logger)
         {

@@ -5,10 +5,10 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Polly;
 using PotopopiCamSync.Models;
+using PotopopiCamSync.Utilities;
 
 namespace PotopopiCamSync.Services
 {
@@ -52,13 +52,16 @@ namespace PotopopiCamSync.Services
                 _httpClient = new HttpClient(socketsHandler);
             }
             
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "PotopopiCamSync/1.3.0-dev");
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", $"{AppConstants.General.ApplicationName}/{AppConstants.General.AppVersion}");
             _httpClient.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
             _httpClient.DefaultRequestVersion = HttpVersion.Version11;
             _httpClient.Timeout = TimeSpan.FromMinutes(30);
             
             _retryPolicy = CreateRetryPolicy();
         }
+
+        public string Name => CloudConstants.Immich.ProviderName;
+        public bool IsEnabled => !string.IsNullOrEmpty(_immichUrl) && !string.IsNullOrEmpty(_apiKey);
 
         public async Task<bool> PingAsync(CancellationToken cancellationToken = default)
         {
@@ -89,8 +92,8 @@ namespace PotopopiCamSync.Services
                 .WaitAndRetryAsync(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)),
                     (outcome, delay, retryCount, context) =>
                     {
-                        _logger.LogWarning("Retry {RetryCount}/3 in {DelaySeconds}s for Immich upload ({Error})",
-                            retryCount, delay.TotalSeconds, outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
+                        _logger.LogWarning("{Prefix} Retry {RetryCount}/3 in {DelaySeconds}s for Immich upload ({Error})",
+                            CloudConstants.Immich.LogPrefix, retryCount, delay.TotalSeconds, outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
                     });
         }
 
@@ -102,7 +105,7 @@ namespace PotopopiCamSync.Services
             try
             {
                 if (string.IsNullOrEmpty(_immichUrl) || string.IsNullOrEmpty(_apiKey)) return false;
-                if (!File.Exists(localFilePath)) { _logger.LogWarning("Local file not found: {Path}", localFilePath); return false; }
+                if (!File.Exists(localFilePath)) { _logger.LogWarning("{Prefix} Local file not found: {Path}", CloudConstants.Immich.LogPrefix, localFilePath); return false; }
 
                 // Use chunked upload for files > 50MB to bypass proxy limits (Cloudflare etc.)
                 if (file.Size > 50 * 1024 * 1024)
@@ -114,7 +117,7 @@ namespace PotopopiCamSync.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Immich upload error {File}: {Message}", file.FileName, ex.Message);
+                _logger.LogError(ex, "{Prefix} Immich upload error {File}: {Message}", CloudConstants.Immich.LogPrefix, file.FileName, ex.Message);
                 return false;
             }
         }
@@ -137,7 +140,7 @@ namespace PotopopiCamSync.Services
 
                 using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, true);
                 using var streamContent = new StreamContent(fileStream);
-                streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(GetMimeType(file.FileName));
+                streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(FileUtilities.GetMimeType(file.FileName));
                 content.Add(streamContent, "assetData", file.FileName);
                 request.Content = content;
 
@@ -153,8 +156,8 @@ namespace PotopopiCamSync.Services
             int totalChunks = (int)Math.Ceiling((double)file.Size / chunkSize);
             string assetId = Guid.NewGuid().ToString();
             
-            _logger.LogInformation("Starting chunked upload for {File} ({Size}MB, {Count} chunks)", 
-                file.FileName, file.Size / (1024 * 1024), totalChunks);
+            _logger.LogInformation("{Prefix} Starting chunked upload for {File} ({Size}MB, {Count} chunks)", 
+                CloudConstants.Immich.LogPrefix, file.FileName, file.Size / (1024 * 1024), totalChunks);
 
             for (int i = 0; i < totalChunks; i++)
             {
@@ -188,7 +191,7 @@ namespace PotopopiCamSync.Services
                     }
 
                     var streamContent = new ByteArrayContent(buffer);
-                    streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(GetMimeType(file.FileName));
+                    streamContent.Headers.ContentType = MediaTypeHeaderValue.Parse(FileUtilities.GetMimeType(file.FileName));
                     content.Add(streamContent, "assetData", file.FileName);
                     request.Content = content;
 
@@ -200,10 +203,10 @@ namespace PotopopiCamSync.Services
                     return await HandleResponseAsync(response, file, albumName, cancellationToken);
                 }
                 
-                _logger.LogDebug("Chunk {Index}/{Total} uploaded for {File}", chunkIndex + 1, totalChunks, file.FileName);
+                _logger.LogDebug("{Prefix} Chunk {Index}/{Total} uploaded for {File}", CloudConstants.Immich.LogPrefix, chunkIndex + 1, totalChunks, file.FileName);
             }
 
-            _logger.LogInformation("Chunked upload completed for {File}", file.FileName);
+            _logger.LogInformation("{Prefix} Chunked upload completed for {File}", CloudConstants.Immich.LogPrefix, file.FileName);
             return true;
         }
 
@@ -223,6 +226,7 @@ namespace PotopopiCamSync.Services
             }
             else if (response.StatusCode == HttpStatusCode.Conflict)
             {
+                _logger.LogInformation("{Prefix} File already exists on Immich: {File}", CloudConstants.Immich.LogPrefix, file.FileName);
                 return true;
             }
 
@@ -236,11 +240,17 @@ namespace PotopopiCamSync.Services
                            "Even chunked upload failed? Try bypassing Cloudflare (use direct IP).";
                     try { PotopopiCamSync.App.ShowTrayNotification("Upload Failed", $"Cloudflare blocked '{file.FileName}'. Use direct IP."); } catch { }
                 }
-                _logger.LogError("Immich upload failed {File}: 413 Payload Too Large. {Hint}", file.FileName, hint);
+                _logger.LogError("{Prefix} Immich upload failed {File}: 413 Payload Too Large. {Hint}", CloudConstants.Immich.LogPrefix, file.FileName, hint);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.BadGateway || 
+                     response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
+                     response.StatusCode == System.Net.HttpStatusCode.GatewayTimeout)
+            {
+                _logger.LogError("{Prefix} Immich server is unavailable: {Status} - {Body}", CloudConstants.Immich.LogPrefix, response.StatusCode, errorBody);
             }
             else
             {
-                _logger.LogWarning("Immich upload failed {File}: {Status} - {Body}", file.FileName, response.StatusCode, errorBody);
+                _logger.LogWarning("{Prefix} Immich upload failed {File}: {Status} - {Body}", CloudConstants.Immich.LogPrefix, file.FileName, response.StatusCode, errorBody);
             }
             return false;
         }
@@ -259,10 +269,10 @@ namespace PotopopiCamSync.Services
                 request.Content = new StringContent(Newtonsoft.Json.JsonConvert.SerializeObject(payload), System.Text.Encoding.UTF8, "application/json");
 
                 var res = await _httpClient.SendAsync(request, ct);
-                if (res.IsSuccessStatusCode) _logger.LogInformation("Assigned {AssetId} to album '{Album}'", assetId, albumName);
-                else _logger.LogWarning("Failed to assign to album: {Status}", res.StatusCode);
+                if (res.IsSuccessStatusCode) _logger.LogInformation("{Prefix} Assigned {AssetId} to album '{Album}'", CloudConstants.Immich.LogPrefix, assetId, albumName);
+                else _logger.LogWarning("{Prefix} Failed to assign to album: {Status}", CloudConstants.Immich.LogPrefix, res.StatusCode);
             }
-            catch (Exception ex) { _logger.LogWarning("Album assignment failed: {Msg}", ex.Message); }
+            catch (Exception ex) { _logger.LogWarning("{Prefix} Album assignment failed: {Msg}", CloudConstants.Immich.LogPrefix, ex.Message); }
         }
 
         private async Task<string?> GetOrCreateAlbumAsync(string albumName, CancellationToken ct)
@@ -277,7 +287,7 @@ namespace PotopopiCamSync.Services
                 {
                     var albumsBody = await getRes.Content.ReadAsStringAsync(ct);
                     var albums = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic[]>(albumsBody);
-                    var existing = albums?.FirstOrDefault(a => (string)a.albumName == albumName);
+                    var existing = albums?.FirstOrDefault(a => string.Equals((string)a.albumName, albumName, StringComparison.OrdinalIgnoreCase));
                     if (existing != null) return (string)existing.id;
                 }
 
@@ -296,27 +306,9 @@ namespace PotopopiCamSync.Services
                     return newId;
                 }
             }
-            catch (Exception ex) { _logger.LogWarning("GetOrCreateAlbum failed: {Msg}", ex.Message); }
+            catch (Exception ex) { _logger.LogWarning("{Prefix} GetOrCreateAlbum failed: {Msg}", CloudConstants.Immich.LogPrefix, ex.Message); }
             return null;
         }
 
-        private static string GetMimeType(string fileName)
-
-        {
-            string ext = Path.GetExtension(fileName).ToUpperInvariant();
-            return ext switch
-            {
-                ".JPG" or ".JPEG" => "image/jpeg",
-                ".PNG"            => "image/png",
-                ".CR2" or ".CR3"  => "image/x-canon-cr2",
-                ".NEF"            => "image/x-nikon-nef",
-                ".ARW"            => "image/x-sony-arw",
-                ".DNG"            => "image/x-adobe-dng",
-                ".MP4"            => "video/mp4",
-                ".MOV"            => "video/quicktime",
-                ".AVI"            => "video/x-msvideo",
-                _                 => "application/octet-stream"
-            };
-        }
     }
 }

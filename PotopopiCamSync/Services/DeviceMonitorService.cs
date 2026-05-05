@@ -5,6 +5,7 @@ using System.Linq;
 using System.IO;
 using Microsoft.Extensions.Logging;
 using PotopopiCamSync.Models;
+using PotopopiCamSync.Utilities;
 
 namespace PotopopiCamSync.Services
 {
