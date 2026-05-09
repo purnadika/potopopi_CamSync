@@ -1,3 +1,4 @@
+#if WINDOWS
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -208,3 +209,4 @@ namespace PotopopiCamSync.Services
         }
     }
 }
+#endif

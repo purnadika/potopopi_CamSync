@@ -10,15 +10,17 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using PotopopiCamSync.Services;
 using PotopopiCamSync.Repositories;
-using PotopopiCamSync.Views;
 using PotopopiCamSync.Models;
+#if WINDOWS
+using PotopopiCamSync.Views;
+#endif
 
 namespace PotopopiCamSync.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
         private readonly SyncOrchestratorService _orchestrator;
-        private readonly DeviceMonitorService _deviceMonitor;
+        private readonly IDeviceMonitorService _deviceMonitor;
         private readonly ISettingsRepository _settingsRepository;
         private readonly ILogger<MainViewModel> _logger;
 
@@ -53,7 +55,7 @@ namespace PotopopiCamSync.ViewModels
         public ObservableCollection<IDeviceProvider> ActiveDevices { get; } = new();
         public ObservableCollection<FlaggedFileModel> FlaggedFiles { get; } = new();
 
-        public MainViewModel(SyncOrchestratorService orchestrator, DeviceMonitorService deviceMonitor, ISettingsRepository settingsRepository, ILogger<MainViewModel> logger)
+        public MainViewModel(SyncOrchestratorService orchestrator, IDeviceMonitorService deviceMonitor, ISettingsRepository settingsRepository, ILogger<MainViewModel> logger)
         {
             _orchestrator = orchestrator;
             _deviceMonitor = deviceMonitor;
@@ -164,6 +166,14 @@ namespace PotopopiCamSync.ViewModels
 
                 System.Windows.Application.Current.Dispatcher.Invoke(() => ClearCacheAndLogs());
             });
+        }
+
+        [RelayCommand]
+        private void OpenSettings()
+        {
+#if WINDOWS
+            new SettingsWindow().ShowDialog();
+#endif
         }
 
         [RelayCommand]

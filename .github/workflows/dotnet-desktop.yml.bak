@@ -1,0 +1,197 @@
+name: .NET Core Desktop (Unified Release)
+
+on:
+  push:
+    branches: [ "main", "development" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main" ]
+<<<<<<< HEAD
+  release:
+    types: [published]
+=======
+    types: [closed] # Trigger when PR is merged
+>>>>>>> main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  Solution_Name: PotopopiCamSync.sln
+  Project_Path: PotopopiCamSync/PotopopiCamSync.csproj
+  Test_Project_Path: PotopopiCamSync.Tests/PotopopiCamSync.Tests.csproj
+  Publish_Directory: ./publish
+
+jobs:
+  build:
+    # Run if it's a push/manual, or if it's a merged PR
+    if: github.event_name != 'pull_request' || (github.event.pull_request.merged == true)
+    strategy:
+      matrix:
+        configuration: [Release]
+
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Execute unit tests
+      run: dotnet test $env:Test_Project_Path --configuration ${{ matrix.configuration }}
+
+    - name: Automated Version Bump (Main Merge Only)
+      shell: pwsh
+      id: version_bump
+      run: |
+        $csprojPath = $env:Project_Path
+        $readmePath = "README.md"
+        
+        # Read Current Version
+        [xml]$csproj = Get-Content $csprojPath
+        $currentVersion = $csproj.Project.PropertyGroup.Version
+        Write-Host "Current Version from Code: $currentVersion"
+        
+        $shouldBump = $false
+        $newVersion = $currentVersion
+        
+        # Logic: Only bump if merging PR to main
+        if ("${{ github.event_name }}" -eq "pull_request" -and "${{ github.event.pull_request.merged }}" -eq "true") {
+            $headRef = "${{ github.event.pull_request.head.ref }}"
+            $parts = $currentVersion.Split('.')
+            $major = [int]$parts[0]
+            $minor = [int]$parts[1]
+            $patch = [int]$parts[2]
+            
+            if ($headRef -like "bugfix/*") {
+                $patch++
+                $shouldBump = $true
+                Write-Host "Detected bugfix branch. Bumping Patch to $patch"
+            } elseif ($headRef -eq "development") {
+                $minor++
+                $patch = 0
+                $shouldBump = $true
+                Write-Host "Detected development branch. Bumping Minor to $minor"
+            }
+            
+            if ($shouldBump) {
+                $newVersion = "$major.$minor.$patch"
+                Write-Host "New Version Calculated: $newVersion"
+                
+                # Update Files
+                $csproj.Project.PropertyGroup.Version = $newVersion
+                $csproj.Save($csprojPath)
+                
+                $readme = Get-Content $readmePath -Raw
+                $readme = $readme -replace "version-\d+\.\d+\.\d+-green", "version-$newVersion-green"
+                $readme = $readme -replace "PotopopiCamSync_v\d+\.\d+\.\d+\.exe", "PotopopiCamSync_v$newVersion.exe"
+                $readme | Set-Content $readmePath
+                
+                # Commit back to main
+                git config user.name "github-actions[bot]"
+                git config user.email "github-actions[bot]@users.noreply.github.com"
+                git add .
+                git commit -m "chore: auto-bump version to v$newVersion [skip ci]"
+                git push origin main
+                
+                # Create tag
+                git tag "v$newVersion"
+                git push origin "v$newVersion"
+            }
+        }
+        
+        # Set Final Version for Build
+        echo "FINAL_VERSION=$newVersion" >> $env:GITHUB_ENV
+        echo "version=$newVersion" >> $env:GITHUB_OUTPUT
+        echo "is_release=$shouldBump" >> $env:GITHUB_OUTPUT
+
+    - name: Restore
+      run: dotnet restore $env:Solution_Name
+
+    - name: Publish the application
+      shell: pwsh
+      run: |
+<<<<<<< HEAD
+        [xml]$csproj = Get-Content $env:Project_Path
+        $baseVersion = $csproj.Project.PropertyGroup.Version
+        
+        $finalVersion = $baseVersion
+        if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
+          $finalVersion = "${{ github.ref }}".Substring(11)
+          Write-Host "Triggered by tag, using version from tag: $finalVersion"
+        } elseif ("${{ github.ref }}" -eq "refs/heads/development") {
+          $finalVersion = "$baseVersion-dev"
+          Write-Host "Branch is development, applying -dev suffix: $finalVersion"
+        }
+        
+=======
+        $suffix = ""
+        if ("${{ github.ref }}" -eq "refs/heads/development") {
+          $suffix = "-dev"
+        }
+        
+        $finalVersion = "$($env:FINAL_VERSION)$suffix"
+>>>>>>> main
+        Write-Host "Building version: $finalVersion"
+        
+        dotnet publish $env:Project_Path `
+          -c ${{ matrix.configuration }} `
+          -r win-x64 `
+          --self-contained false `
+          -p:PublishSingleFile=true `
+          -p:PublishReadyToRun=true `
+          -p:IncludeNativeLibrariesForSelfExtract=false `
+          -p:Version=$finalVersion `
+          -o $env:Publish_Directory
+
+        # Explicitly rename the output to match the expected pattern
+        $exePath = Get-ChildItem -Path $env:Publish_Directory -Filter "*.exe" | Select-Object -First 1
+        if ($exePath) {
+          $newName = "PotopopiCamSync_$finalVersion.exe"
+          Rename-Item -Path $exePath.FullName -NewName $newName
+          Write-Host "Renamed $($exePath.Name) to $newName"
+        }
+
+    - name: Package AI Dependencies
+      shell: pwsh
+      run: |
+        $dlls = Get-ChildItem -Path $env:Publish_Directory -Filter *.dll
+        if ($dlls.Count -gt 0) {
+          Compress-Archive -Path $dlls.FullName -DestinationPath "$env:Publish_Directory/AI_Dependencies.zip"
+          Remove-Item $dlls.FullName
+          Write-Host "Zipped $($dlls.Count) native DLLs into AI_Dependencies.zip"
+        }
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: PotopopiCamSync_Build
+        path: |
+          ${{ env.Publish_Directory }}/PotopopiCamSync_*.exe
+          ${{ env.Publish_Directory }}/AI_Dependencies.zip
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v2
+      # Only release on PR merge (which created a tag) OR on manual tag push
+      if: steps.version_bump.outputs.is_release == 'true' || startsWith(github.ref, 'refs/tags/v')
+      with:
+        tag_name: v${{ env.FINAL_VERSION }}
+        body_path: RELEASE_NOTES.md
+        generate_release_notes: true # This will append automated notes if the file is missing or after the manual notes
+        files: |
+          ${{ env.Publish_Directory }}/PotopopiCamSync_*.exe
+          ${{ env.Publish_Directory }}/AI_Dependencies.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

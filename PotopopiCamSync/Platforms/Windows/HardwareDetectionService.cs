@@ -1,3 +1,4 @@
+#if WINDOWS
 using System;
 using System.Linq;
 using System.Management;
@@ -53,3 +54,4 @@ namespace PotopopiCamSync.Services
         }
     }
 }
+#endif

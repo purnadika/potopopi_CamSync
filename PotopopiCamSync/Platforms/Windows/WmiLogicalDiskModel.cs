@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Management;
 
 namespace PotopopiCamSync.Models
@@ -19,3 +20,4 @@ namespace PotopopiCamSync.Models
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if WINDOWS
 using System;
 using System.Management;
 using System.Threading.Tasks;
@@ -8,7 +9,7 @@ using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
 {
-    public class DeviceMonitorService : IDisposable
+    public class DeviceMonitorService : IDeviceMonitorService
     {
         private ManagementEventWatcher? _insertWatcher;
         private ManagementEventWatcher? _volumeWatcher;
@@ -150,3 +151,4 @@ namespace PotopopiCamSync.Services
         }
     }
 }
+#endif

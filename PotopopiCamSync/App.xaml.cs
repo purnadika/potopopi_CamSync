@@ -35,7 +35,7 @@ namespace PotopopiCamSync
                     services.AddSingleton<AIEngineService>();
                     services.AddSingleton<IMediaAnalyzer>(sp => sp.GetRequiredService<AIEngineService>());
                     services.AddSingleton<AIDependencyManagerService>();
-                    services.AddSingleton<DeviceMonitorService>();
+                    services.AddSingleton<IDeviceMonitorService, DeviceMonitorService>();
                     services.AddSingleton<SyncOrchestratorService>();
                     services.AddSingleton<MainViewModel>();
                     services.AddHttpClient<UpdateCheckerService>();
@@ -89,7 +89,7 @@ namespace PotopopiCamSync
             await _host.StartAsync();
 
             var settings = ServiceProvider.GetRequiredService<ISettingsRepository>();
-            var deviceMonitor = ServiceProvider.GetRequiredService<DeviceMonitorService>();
+            var deviceMonitor = ServiceProvider.GetRequiredService<IDeviceMonitorService>();
             var updateChecker = ServiceProvider.GetRequiredService<UpdateCheckerService>();
 
             // Initialize System Tray Icon

@@ -244,7 +244,9 @@ namespace PotopopiCamSync.Services
                 {
                     hint = "\n[CLOUDFLARE DETECTED] Cloudflare Free has a 100MB limit. " +
                            "Even chunked upload failed? Try bypassing Cloudflare (use direct IP).";
+#if WINDOWS
                     try { PotopopiCamSync.App.ShowTrayNotification("Upload Failed", $"Cloudflare blocked '{file.FileName}'. Use direct IP."); } catch { }
+#endif
                 }
                 _logger.LogError("Immich upload failed {File}: 413 Payload Too Large. {Body} {Hint}", file.FileName, errorBody, hint);
             }
