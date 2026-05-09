@@ -45,7 +45,7 @@ namespace PotopopiCamSync.Tests
             return path;
         }
 
-        [Fact(Skip = "Native library dependencies (OpenCV) can cause stalls in CI headless runners.")]
+        [DynamicSkipFact("Native library dependencies (OpenCV) can cause stalls in CI headless runners.")]
         public async Task AnalyzeAsync_ShouldIdentifyBlurryImage()
         {
             // Arrange
@@ -62,7 +62,7 @@ namespace PotopopiCamSync.Tests
             // Assert.True(sharpResult.BlurScore > blurryResult.BlurScore);
         }
 
-        [Fact(Skip = "Native library dependencies (OpenCV) can cause stalls in CI headless runners.")]
+        [DynamicSkipFact("Native library dependencies (OpenCV) can cause stalls in CI headless runners.")]
         public void GetImageHash_ShouldBeSameForIdenticalImages()
         {
             // Arrange

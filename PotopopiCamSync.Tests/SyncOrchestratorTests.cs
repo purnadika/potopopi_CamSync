@@ -53,7 +53,7 @@ public class SyncOrchestratorTests : IDisposable
         mock.Setup(d => d.DeviceName).Returns("Mock Camera");
         mock.Setup(d => d.IsConnected).Returns(true);
         mock.Setup(d => d.ConnectAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        mock.Setup(d => d.GetFilesAsync(It.IsAny<CancellationToken>()))
+        mock.Setup(d => d.GetFilesAsync(It.IsAny<CancellationToken>(), It.IsAny<Action<string>>()))
             .ReturnsAsync(files ?? new List<SyncFileModel>());
 
         mock.Setup(d => d.DownloadToStreamAsync(It.IsAny<SyncFileModel>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
@@ -78,7 +78,7 @@ public class SyncOrchestratorTests : IDisposable
         };
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Exits_Early_When_No_LocalFolder()
     {
         _settings.Config.LocalBackupFolder = "";
@@ -90,7 +90,7 @@ public class SyncOrchestratorTests : IDisposable
         mock.Verify(d => d.ConnectAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Downloads_File_To_LocalFolder()
     {
         var file = MakeSyncFile("IMG_001.jpg");
@@ -103,7 +103,7 @@ public class SyncOrchestratorTests : IDisposable
         Assert.Equal("FAKEDATA", File.ReadAllText(expectedPath));
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_ForceSync_Redownloads_Missing_Files()
     {
         var file = MakeSyncFile("IMG_FORCE.jpg");
@@ -132,7 +132,7 @@ public class SyncOrchestratorTests : IDisposable
         mock.Verify(d => d.DownloadToStreamAsync(It.IsAny<SyncFileModel>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Skips_Already_Synced_Files()
     {
         var file = MakeSyncFile("IMG_002.jpg");
@@ -147,7 +147,7 @@ public class SyncOrchestratorTests : IDisposable
         mock.Verify(d => d.DownloadToStreamAsync(It.IsAny<SyncFileModel>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Marks_File_As_Synced_After_Download()
     {
         var file = MakeSyncFile("IMG_003.jpg");
@@ -160,7 +160,7 @@ public class SyncOrchestratorTests : IDisposable
         Assert.True(wasSynced);
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Calls_Disconnect_After_Sync()
     {
         var mock = MakeMockDevice();
@@ -171,7 +171,7 @@ public class SyncOrchestratorTests : IDisposable
     }
 
     
-    [Fact(Skip = "Stalls in headless environment due to BlockingCollection race")]
+    [DynamicSkipFact("Stalls in headless environment due to BlockingCollection race")]
     public async Task StartSyncAsync_Respects_CancellationToken()
     {
         var files = new List<SyncFileModel> { MakeSyncFile("IMG_004.jpg") };
@@ -192,17 +192,17 @@ public class SyncOrchestratorTests : IDisposable
     }
 
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task SyncLocalToImmichAsync_Reports_Not_Configured_Without_Immich()
     {
         _settings.Config.EnableImmichSync = false;
 
         await _orchestrator.SyncLocalToImmichAsync();
 
-        Assert.Contains(_progressMessages, m => m.Contains("not configured", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(_progressMessages, m => m.Contains("not set", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Downloads_But_Skips_Immich_If_Pattern_Matches()
     {
         _settings.Config.EnableImmichSync = true;
@@ -223,7 +223,7 @@ public class SyncOrchestratorTests : IDisposable
         Assert.Contains(_progressMessages, m => m.Contains("Immich Skip") && m.Contains("IMG_006.cr2"));
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_SmartScan_Skips_Old_Files()
     {
         var oldFile = MakeSyncFile("OLD.jpg");
@@ -244,7 +244,7 @@ public class SyncOrchestratorTests : IDisposable
         Assert.True(File.Exists(newPath));
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Triggers_OnAIResultFound()
     {
         var file = MakeSyncFile("BLURRY.jpg");
@@ -259,7 +259,7 @@ public class SyncOrchestratorTests : IDisposable
         await _orchestrator.StartSyncAsync(mock.Object);
     }
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Respects_LocalFolderOverride()
     {
         string overridePath = Path.Combine(Path.GetTempPath(), $"Override_{Guid.NewGuid()}");
@@ -280,7 +280,7 @@ public class SyncOrchestratorTests : IDisposable
     }
 
 
-    [Fact(Skip = "CI Stall")]
+    [DynamicSkipFact]
     public async Task StartSyncAsync_Increments_SkippedFiles_Metric_When_Immich_Skips()
     {
         _settings.Config.EnableImmichSync = true;
