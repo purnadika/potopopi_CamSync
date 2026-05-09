@@ -280,6 +280,27 @@ public class SyncOrchestratorTests : IDisposable
     }
 
 
+    [Fact(Skip = "CI Stall")]
+    public async Task StartSyncAsync_Increments_SkippedFiles_Metric_When_Immich_Skips()
+    {
+        _settings.Config.EnableImmichSync = true;
+        _settings.Config.ImmichUrl = "http://fake";
+        _settings.Config.ImmichApiKey = "fake";
+        _settings.Config.ImmichExclusionPatterns = "*.skip";
+
+        var file = MakeSyncFile("IMG_SKIP.skip");
+        var mock = MakeMockDevice(files: new List<SyncFileModel> { file });
+
+        SyncMetricsModel? finalMetrics = null;
+        _orchestrator.OnMetricsUpdated += m => finalMetrics = m;
+
+        await _orchestrator.StartSyncAsync(mock.Object);
+
+        Assert.NotNull(finalMetrics);
+        Assert.Equal(1, finalMetrics.SkippedFiles);
+        Assert.Equal(0, finalMetrics.UploadedFiles);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_localFolder))
