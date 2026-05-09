@@ -10,6 +10,7 @@
 - **🚀 Smart Scanning**: Incremental sync logic that only processes new files since your last backup.
 - **🤖 AI Review Tab**: 
   - Dedicated interface for reviewing flagged photos (blurry/duplicates).
+  - **Configurable Blur Sensitivity**: Adjust sensitivity to avoid false positives on bokeh and portrait photography, utilizing an advanced grid-based Laplacian variance method.
   - **Persistent State**: Review results stay across restarts until you allow or delete them.
   - **Local Cleanup**: Mark and delete low-quality files directly from the dashboard.
 - **🦾 Robust Pipeline**:

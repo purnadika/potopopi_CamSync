@@ -348,8 +348,8 @@ namespace PotopopiCamSync.ViewModels
                 if (metrics.TotalFiles > 0)
                 {
                     double total = metrics.TotalFiles * 2;
-                    double done = metrics.DownloadedFiles + metrics.UploadedFiles;
-                    SyncProgressPercentage = (done / total) * 100;
+                    double done = metrics.DownloadedFiles + metrics.UploadedFiles + metrics.SkippedFiles + metrics.FailedFiles;
+                    SyncProgressPercentage = Math.Min(100.0, (done / total) * 100);
                     TotalFound = metrics.TotalFiles;
                     BlurryCount = metrics.BlurryFiles;
                     DuplicateCount = metrics.DuplicateFiles;

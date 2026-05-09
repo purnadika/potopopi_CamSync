@@ -120,7 +120,11 @@ namespace PotopopiCamSync.Services
                             }
                         }
 
-                        if (!shouldSync) continue;
+                        if (!shouldSync)
+                        {
+                            metrics.SkippedFiles += 2; // Skipped both download and upload
+                            continue;
+                        }
                         Progress($"[{++processedCount}/{filteredFiles.Count}] Downloading to Local: {file.FileName}");
 
                         Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
@@ -159,6 +163,8 @@ namespace PotopopiCamSync.Services
                             if (isRejectedByAI && !state.AllowedAIRejectedFiles.Contains(localPath))
                             {
                                 Progress($"  ✗ Skipping Immich upload (AI Rejection). Local copy saved.");
+                                metrics.SkippedFiles++; // Skipped upload step
+                                OnMetricsUpdated?.Invoke(metrics);
                             }
                             else
                             {
@@ -232,6 +238,7 @@ namespace PotopopiCamSync.Services
                 var immichFilter = new FileFilter(config.ImmichExclusionPatterns);
                 int uploadedFiles = 0;
                 int failedFiles = 0;
+                int skippedFiles = 0;
 
                 try
                 {
@@ -240,6 +247,7 @@ namespace PotopopiCamSync.Services
                         if (ct.IsCancellationRequested) break;
 
                         bool immichOk = true;
+                        bool immichSkipped = false;
                         if (config.EnableImmichSync)
                         {
                             var accountId = config.RegisteredDevices.FirstOrDefault(d => d.Id == device.DeviceId)?.ImmichAccountId;
@@ -255,6 +263,7 @@ namespace PotopopiCamSync.Services
                             {
                                 Progress($"  → [Immich Skip] {job.File.FileName}");
                                 immichOk = true;
+                                immichSkipped = true;
                             }
                             else
                             {
@@ -282,16 +291,28 @@ namespace PotopopiCamSync.Services
                         }
 
                         if (immichOk)
-                    {
-                        metrics.UploadedFiles = Interlocked.Increment(ref uploadedFiles);
-                        metrics.BytesUploaded += job.File.Size;
-                        syncedSet.Add(job.File.GetIdentifier());
-                        _settingsRepository.SaveState();
-                        OnMetricsUpdated?.Invoke(metrics);
+                        {
+                            if (immichSkipped)
+                            {
+                                metrics.SkippedFiles = Interlocked.Increment(ref skippedFiles);
+                            }
+                            else
+                            {
+                                metrics.UploadedFiles = Interlocked.Increment(ref uploadedFiles);
+                                metrics.BytesUploaded += job.File.Size;
+                            }
+                            
+                            syncedSet.Add(job.File.GetIdentifier());
+                            _settingsRepository.SaveState();
+                            OnMetricsUpdated?.Invoke(metrics);
+                        }
+                        else 
+                        { 
+                            metrics.FailedFiles = Interlocked.Increment(ref failedFiles); 
+                            OnMetricsUpdated?.Invoke(metrics);
+                        }
                     }
-                    else { metrics.FailedFiles = Interlocked.Increment(ref failedFiles); }
                 }
-            }
             catch (OperationCanceledException) { _logger.LogInformation("Upload pipeline stopped via cancellation."); }
             catch (Exception ex) { _logger.LogError(ex, "Critical error in upload pipeline."); }
             }, ct);

@@ -29,7 +29,16 @@ namespace PotopopiCamSync.Services
         public bool IsInstalled()
         {
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
-            return File.Exists(Path.Combine(appDir, ExpectedDll));
+            if (File.Exists(Path.Combine(appDir, ExpectedDll))) return true;
+
+            // Check common runtimes path for .NET Desktop apps
+            string runtimesPath = Path.Combine(appDir, "runtimes", "win-x64", "native", ExpectedDll);
+            if (File.Exists(runtimesPath)) return true;
+
+            // Also check current directory if it differs from BaseDirectory
+            if (File.Exists(Path.Combine(Directory.GetCurrentDirectory(), ExpectedDll))) return true;
+
+            return false;
         }
 
         public async Task DownloadAndInstallAsync(IProgress<double> progress, CancellationToken ct)

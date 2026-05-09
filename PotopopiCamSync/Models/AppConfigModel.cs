@@ -20,6 +20,7 @@ namespace PotopopiCamSync.Models
 
         // AI Config
         public AIAnalysisMode AIAnalysisMode { get; set; } = AIAnalysisMode.Standard;
+        public int AIBlurThreshold { get; set; } = 60; // Lowered from 100
 
         // Performance throttling (bytes per second, 0 = unlimited)
         public long DownloadSpeedLimitBps { get; set; } = 0;

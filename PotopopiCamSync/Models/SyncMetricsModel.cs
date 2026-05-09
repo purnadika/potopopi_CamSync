@@ -6,6 +6,7 @@ namespace PotopopiCamSync.Models
         public int DownloadedFiles { get; set; }
         public int UploadedFiles { get; set; }
         public int FailedFiles { get; set; }
+        public int SkippedFiles { get; set; }
         public int BlurryFiles { get; set; }
         public int DuplicateFiles { get; set; }
         public long BytesDownloaded { get; set; }

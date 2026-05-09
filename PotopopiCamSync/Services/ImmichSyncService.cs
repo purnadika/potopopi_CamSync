@@ -64,13 +64,22 @@ namespace PotopopiCamSync.Services
         {
             try
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"{_immichUrl}/server-info/ping");
+                // Using /users/me for ping because it validates both connectivity and API Key
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{_immichUrl}/users/me");
                 request.Headers.Add("x-api-key", _apiKey);
                 var response = await _httpClient.SendAsync(request, cancellationToken);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    string error = await response.Content.ReadAsStringAsync(cancellationToken);
+                    _logger.LogWarning("Immich Ping failed: {Status} - {Error}", response.StatusCode, error);
+                }
+                
                 return response.IsSuccessStatusCode;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning("Immich Ping error: {Message}", ex.Message);
                 return false;
             }
         }
@@ -223,6 +232,7 @@ namespace PotopopiCamSync.Services
             }
             else if (response.StatusCode == HttpStatusCode.Conflict)
             {
+                _logger.LogInformation("Immich upload: {File} already exists (Conflict 409). Treated as success.", file.FileName);
                 return true;
             }
 
@@ -236,11 +246,11 @@ namespace PotopopiCamSync.Services
                            "Even chunked upload failed? Try bypassing Cloudflare (use direct IP).";
                     try { PotopopiCamSync.App.ShowTrayNotification("Upload Failed", $"Cloudflare blocked '{file.FileName}'. Use direct IP."); } catch { }
                 }
-                _logger.LogError("Immich upload failed {File}: 413 Payload Too Large. {Hint}", file.FileName, hint);
+                _logger.LogError("Immich upload failed {File}: 413 Payload Too Large. {Body} {Hint}", file.FileName, errorBody, hint);
             }
             else
             {
-                _logger.LogWarning("Immich upload failed {File}: {Status} - {Body}", file.FileName, response.StatusCode, errorBody);
+                _logger.LogError("Immich upload failed {File}: {Status} - {Body}", file.FileName, response.StatusCode, errorBody);
             }
             return false;
         }

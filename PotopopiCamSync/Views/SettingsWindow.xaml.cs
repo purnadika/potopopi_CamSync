@@ -48,6 +48,7 @@ namespace PotopopiCamSync.Views
             chkMinimizeToTray.IsChecked = config.MinimizeToTray;
 
             // AI
+            sldBlurThreshold.Value = config.AIBlurThreshold;
             switch (config.AIAnalysisMode)
             {
                 case AIAnalysisMode.None: rbAI_None.IsChecked = true; break;
@@ -160,6 +161,7 @@ namespace PotopopiCamSync.Views
             if (long.TryParse(txtUploadLimit.Text, out long ulMb)) config.UploadSpeedLimitBps = ulMb * 1024 * 1024;
 
             config.AIAnalysisMode = newAiMode;
+            config.AIBlurThreshold = (int)sldBlurThreshold.Value;
 
             config.StartMinimized = chkStartMinimized.IsChecked ?? false;
             config.MinimizeToTray = chkMinimizeToTray.IsChecked ?? true;
