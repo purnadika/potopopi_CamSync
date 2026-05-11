@@ -72,7 +72,7 @@ namespace PotopopiCamSync.Services
                 {
                     foreach (var device in searcher.Get())
                     {
-                        var disk = WmiLogicalDiskModel.FromManagementObject(device);
+                        var disk = MapLogicalDisk(device);
 
                         if (!string.IsNullOrEmpty(disk.DriveLetter) && !string.IsNullOrEmpty(disk.VolumeSerialNumber))
                         {
@@ -91,7 +91,7 @@ namespace PotopopiCamSync.Services
                 {
                     foreach (var device in searcher.Get())
                     {
-                        var pnp = WmiPnpDeviceModel.FromManagementObject(device);
+                        var pnp = MapPnpDevice(device);
 
                         if (!string.IsNullOrEmpty(pnp.DeviceId) && IsMtpDevice(pnp.Name, pnp.Description))
                         {
@@ -110,7 +110,7 @@ namespace PotopopiCamSync.Services
         private void DeviceInsertedEvent(object sender, EventArrivedEventArgs e)
         {
             var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
-            var pnp = WmiPnpDeviceModel.FromManagementObject(instance);
+            var pnp = MapPnpDevice(instance);
 
             if (!string.IsNullOrEmpty(pnp.DeviceId) && IsMtpDevice(pnp.Name, pnp.Description))
             {
@@ -122,7 +122,7 @@ namespace PotopopiCamSync.Services
         private void VolumeInsertedEvent(object sender, EventArrivedEventArgs e)
         {
             var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
-            var disk = WmiLogicalDiskModel.FromManagementObject(instance);
+            var disk = MapLogicalDisk(instance);
 
             if (!string.IsNullOrEmpty(disk.DriveLetter) && !string.IsNullOrEmpty(disk.VolumeSerialNumber))
             {
@@ -147,6 +147,26 @@ namespace PotopopiCamSync.Services
         {
             _insertWatcher?.Dispose();
             _volumeWatcher?.Dispose();
+        }
+
+        private static WmiLogicalDiskModel MapLogicalDisk(ManagementBaseObject instance)
+        {
+            return new WmiLogicalDiskModel
+            {
+                DriveLetter = instance["DeviceID"]?.ToString(),
+                VolumeSerialNumber = instance["VolumeSerialNumber"]?.ToString(),
+                VolumeName = instance["VolumeName"]?.ToString()
+            };
+        }
+
+        private static WmiPnpDeviceModel MapPnpDevice(ManagementBaseObject instance)
+        {
+            return new WmiPnpDeviceModel
+            {
+                DeviceId = instance["PNPDeviceID"]?.ToString(),
+                Name = instance["Name"]?.ToString(),
+                Description = instance["Description"]?.ToString()
+            };
         }
     }
 }
