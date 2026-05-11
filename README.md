@@ -2,7 +2,7 @@
 
 **Potopopi CamSync** is a professional-grade media synchronization tool designed for photographers and enthusiasts. It bridges the gap between your camera (SD Cards, MTP devices) and [Immich](https://immich.app/), providing a seamless, automated, and AI-powered backup workflow.
 
-![Version](https://img.shields.io/badge/version-1.3.1-green)
+![Version](https://img.shields.io/badge/version-1.4.0-green)
 ![Platform](https://img.shields.io/badge/platform-windows-blue)
 
 ## ✨ Key Features
@@ -56,3 +56,4 @@ Created with <span title="AI from Antigravity and Copilot">❤️</span> by **pu
 
 ## 📄 License
 This project is for personal use and study. See the repository for details.
+
