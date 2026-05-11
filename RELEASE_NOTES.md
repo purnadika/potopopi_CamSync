@@ -1,20 +1,17 @@
-# 🚀 Potopopi CamSync v1.3.1 - Stability & AI Update
+# 🚀 Potopopi CamSync v1.3.1 - Architectural Modernization
 
-This release focuses on improving the reliability of the AI engine and stabilizing Immich synchronization.
+This version marks a major architectural milestone: the decoupling of the core sync engine from the WPF user interface.
 
-### ✨ New Features
-- **Configurable AI Blur Sensitivity**: You can now adjust the blur threshold in Settings. Lower values are more lenient, perfect for bokeh-heavy portrait photography.
-- **Advanced Blur Detection**: Implemented a new grid-based Laplacian variance method for more accurate identification of out-of-focus areas.
+### 🏗️ Architectural Changes
+- **Core Library Extraction**: Successfully moved all business logic, models, and sync services into a standalone `.NET 10` Class Library (`PotopopiCamSync.Core`).
+- **Clean Architecture Implementation**:
+    - The core engine is now platform-agnostic, referencing no UI or hardware-specific Windows namespaces.
+    - Established clear interfaces (`IDeviceProvider`, `IMediaAnalyzer`, `ISyncDestination`) to allow for future native mobile and cross-platform implementations.
+- **Improved Dependency Injection**: Unified the service container across the library and application for better testability and maintainability.
 
-### 🦾 Improvements & Fixes
-- **Automated Release Pipeline**: Merging to `main` now automatically bumps the version, updates documentation, builds the application, and creates a GitHub Release.
-- **Dynamic Test Execution**: Integration tests now automatically run on local development machines but skip in CI environments to prevent stalls, ensuring better local code quality.
-- **AI Module Detection**: Fixed a bug where the app would re-prompt for AI module downloads even if they were already present in the runtimes folder.
-- **Immich Sync Stabilization**:
-    - Gracefully handles `409 Conflict` (Duplicate) errors, reporting them as "Skipped" instead of "Failed."
-    - Updated connectivity checks to use the `/users/me` endpoint for more reliable API key validation.
-    - Enhanced diagnostic logging for server-side errors.
-- **Progress Tracking**: Corrected the sync progress percentage to accurately account for files skipped by the AI or the Immich filter.
+### 🦾 Stability & Refactoring
+- **WMI Mapping Decoupling**: Refactored hardware monitoring logic to keep Windows-specific management objects out of the Core models.
+- **UI Dependency Cleanup**: Removed all direct UI calls (tray notifications, dispatchers) from the background sync services, replacing them with event-based communication.
 
 ---
-*Note: This is an automated release triggered by a bugfix merge.*
+*Note: This is an internal developmental release focusing on the groundwork for the native Android port.*
