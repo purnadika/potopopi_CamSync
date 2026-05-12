@@ -16,7 +16,7 @@ namespace PotopopiCamSync.Interop
         /// Initializes the core engine.
         /// </summary>
         /// <param name="settingsPath">Path to the settings directory (UTF-8).</param>
-        [UnmanagedCallersOnly(EntryPoint = "Potopopi_Init")]
+        [UnmanagedCallersOnly(EntryPoint = "init")]
         public static unsafe void Init(byte* settingsPath)
         {
             try
@@ -40,7 +40,7 @@ namespace PotopopiCamSync.Interop
         /// <summary>
         /// Checks if the engine is initialized.
         /// </summary>
-        [UnmanagedCallersOnly(EntryPoint = "Potopopi_IsInitialized")]
+        [UnmanagedCallersOnly(EntryPoint = "isInitialized")]
         public static int IsInitialized()
         {
             return _orchestrator != null ? 1 : 0;
@@ -49,7 +49,7 @@ namespace PotopopiCamSync.Interop
         /// <summary>
         /// Placeholder for starting a sync process.
         /// </summary>
-        [UnmanagedCallersOnly(EntryPoint = "Potopopi_StartSync")]
+        [UnmanagedCallersOnly(EntryPoint = "startSync")]
         public static unsafe void StartSync(byte* deviceId, delegate* unmanaged<byte*, void> progressCallback)
         {
             if (_orchestrator == null) return;
