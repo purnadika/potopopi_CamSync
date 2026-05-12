@@ -47,12 +47,15 @@ namespace PotopopiCamSync.Interop
         }
 
         /// <summary>
-        /// Placeholder for starting a sync process.
+        /// Starts a sync process for the given device.
         /// </summary>
         [UnmanagedCallersOnly(EntryPoint = "startSync")]
-        public static unsafe void StartSync(byte* deviceId, delegate* unmanaged<byte*, void> progressCallback)
+        public static unsafe void StartSync(byte* deviceId, IntPtr progressCallbackPtr)
         {
-            if (_orchestrator == null) return;
+            if (_orchestrator == null || progressCallbackPtr == IntPtr.Zero) return;
+
+            // Cast the IntPtr back to an unmanaged function pointer
+            var progressCallback = (delegate* unmanaged<byte*, void>)progressCallbackPtr;
 
             string id = Marshal.PtrToStringUTF8((IntPtr)deviceId) ?? "";
             
@@ -63,8 +66,6 @@ namespace PotopopiCamSync.Interop
                     progressCallback(pMsg);
                 }
             };
-
-            // Implementation note: Device discovery and provider must be handled via interop or injected.
         }
     }
 }

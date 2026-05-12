@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using PotopopiCamSync.Models;
 
 namespace PotopopiCamSync.Services
 {
@@ -11,16 +12,23 @@ namespace PotopopiCamSync.Services
     /// </summary>
     public class FileFilter
     {
+        private readonly bool _excludeRaw;
+        private static readonly string[] RawExtensions = { ".cr2", ".cr3", ".nef", ".arw", ".dng", ".orf" };
         private readonly List<Regex> _patterns;
 
-        public FileFilter(string globPatterns)
+        public FileFilter(string globPatterns) : this(new AppConfigModel { ImmichExclusionPatterns = globPatterns })
         {
+        }
+
+        public FileFilter(AppConfigModel config)
+        {
+            _excludeRaw = config.ExcludeRawFiles;
             _patterns = new List<Regex>();
 
-            if (string.IsNullOrWhiteSpace(globPatterns))
+            if (string.IsNullOrWhiteSpace(config.ImmichExclusionPatterns))
                 return;
 
-            var patterns = globPatterns.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            var patterns = config.ImmichExclusionPatterns.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var pattern in patterns)
             {
                 var trimmed = pattern.Trim();
@@ -38,6 +46,10 @@ namespace PotopopiCamSync.Services
         {
             if (string.IsNullOrWhiteSpace(fileName))
                 return false;
+
+            string ext = System.IO.Path.GetExtension(fileName).ToLowerInvariant();
+            if (_excludeRaw && RawExtensions.Contains(ext))
+                return true;
 
             string name = System.IO.Path.GetFileName(fileName).ToLowerInvariant();
             return _patterns.Any(p => p.IsMatch(name));
