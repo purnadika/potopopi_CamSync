@@ -61,14 +61,14 @@ jobs:
           fi
 
       # INTEGRATED FIX: Call llvm-ar directly from the prebuilt Android NDK toolchain path
-      - name: Create Dummy libgcc for Android NDK
+      - name: Inject Real LLVM Builtins as libgcc
         if: matrix.rid == 'linux-bionic-arm64'
         shell: bash
         run: |
           mkdir -p PotopopiCamSync.Core/dummy_libgcc
-          echo "void __dummy_gcc(){}" > PotopopiCamSync.Core/dummy_libgcc/dummy.c
-          clang --target=aarch64-linux-android21 -c PotopopiCamSync.Core/dummy_libgcc/dummy.c -o PotopopiCamSync.Core/dummy_libgcc/dummy.o
-          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar rcs PotopopiCamSync.Core/dummy_libgcc/libgcc.a PotopopiCamSync.Core/dummy_libgcc/dummy.o
+          BUILTINS_PATH=$(find $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang -name "libclang_rt.builtins-aarch64-android.a" | head -n 1)
+          echo "Found real builtins at: $BUILTINS_PATH"
+          cp "$BUILTINS_PATH" PotopopiCamSync.Core/dummy_libgcc/libgcc.a
           
       # Execute publish with specific -f (TFM) and /p:NativeLib flags
       - name: Publish Native AOT
