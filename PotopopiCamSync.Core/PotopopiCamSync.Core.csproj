@@ -4,8 +4,10 @@
     <TargetFramework Condition="'$(RuntimeIdentifier)' == 'osx-arm64'">net10.0-macos</TargetFramework>
     <TargetFramework Condition="'$(RuntimeIdentifier)' == 'ios-arm64'">net10.0-ios</TargetFramework>
     
-    <TargetFrameworks Condition="'$(TargetFramework)' == ''">net10.0;net10.0-android</TargetFrameworks>
-    
+    <TargetFrameworks Condition="'$(TargetFramework)' == ''">net10.0;net10.0-android;net10.0-ios;net10.0-macos</TargetFrameworks>
+    <AssemblyName Condition="'$(RuntimeIdentifier)' != 'linux-bionic-arm64'">PotopopiCamSync.Core</AssemblyName>
+    <AssemblyName Condition="'$(RuntimeIdentifier)' == 'linux-bionic-arm64'">PotopopiCamSyncCore</AssemblyName>
+    <RootNamespace>PotopopiCamSync</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
@@ -24,13 +26,14 @@
     <NativeLib Condition="'$(RuntimeIdentifier)' != 'ios-arm64'">Shared</NativeLib>
     <NativeLib Condition="'$(RuntimeIdentifier)' == 'ios-arm64'">Static</NativeLib>
  
-    <StripSymbols>false</StripSymbols>
+    <StripSymbols Condition="'$(RuntimeIdentifier)' != 'linux-bionic-arm64'">true</StripSymbols>
+    <StripSymbols Condition="'$(RuntimeIdentifier)' == 'linux-bionic-arm64'">false</StripSymbols>
     <OptimizationPreference>Speed</OptimizationPreference>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(RuntimeIdentifier)' == 'linux-bionic-arm64'">
-    <LinkerArg Include="-static-libgcc" />
+    <LinkerArg Include="-L$(MSBuildProjectDirectory)/dummy_libgcc" />
   </ItemGroup>
 
   <ItemGroup>
