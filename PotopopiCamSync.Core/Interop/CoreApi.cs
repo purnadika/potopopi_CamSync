@@ -49,26 +49,41 @@ namespace PotopopiCamSync.Interop
         }
 
         /// <summary>
-        /// Starts a sync process for the given device.
+        /// Starts a sync process using a pre-provided list of files (JSON).
+        /// Used for Android Scoped Storage compatibility.
         /// </summary>
-        [System.Diagnostics.CodeAnalysis.DynamicDependency("StartSync")]
-        [UnmanagedCallersOnly(EntryPoint = "startSync")]
-        public static unsafe void StartSync(byte* deviceId, IntPtr progressCallbackPtr)
+        [System.Diagnostics.CodeAnalysis.DynamicDependency("StartSyncWithFiles")]
+        [UnmanagedCallersOnly(EntryPoint = "startSyncWithFiles")]
+        public static unsafe void StartSyncWithFiles(byte* deviceId, byte* deviceName, byte* filesJson, IntPtr progressCallbackPtr)
         {
             if (_orchestrator == null || progressCallbackPtr == IntPtr.Zero) return;
 
-            // Cast the IntPtr back to an unmanaged function pointer
             var progressCallback = (delegate* unmanaged<byte*, void>)progressCallbackPtr;
 
             string id = Marshal.PtrToStringUTF8((IntPtr)deviceId) ?? "";
-            
-            _orchestrator.OnSyncProgress += (msg) => {
-                byte[] utf8Bytes = Encoding.UTF8.GetBytes(msg + "\0"); // Null-terminated for C
-                fixed (byte* pMsg = utf8Bytes)
-                {
-                    progressCallback(pMsg);
-                }
-            };
+            string name = Marshal.PtrToStringUTF8((IntPtr)deviceName) ?? "";
+            string json = Marshal.PtrToStringUTF8((IntPtr)filesJson) ?? "[]";
+
+            try
+            {
+                var files = System.Text.Json.JsonSerializer.Deserialize(json, SourceGenerationContext.Default.ListSyncFileModel) ?? new List<SyncFileModel>();
+                var manualDevice = new ManualDeviceProvider(id, name, files);
+
+                _orchestrator.OnSyncProgress += (msg) => {
+                    byte[] utf8Bytes = Encoding.UTF8.GetBytes(msg + "\0");
+                    fixed (byte* pMsg = utf8Bytes)
+                    {
+                        progressCallback(pMsg);
+                    }
+                };
+
+                Task.Run(() => _orchestrator.StartSyncAsync(manualDevice));
+            }
+            catch (Exception ex)
+            {
+                byte[] utf8Bytes = Encoding.UTF8.GetBytes($"Error parsing file list: {ex.Message}\0");
+                fixed (byte* pMsg = utf8Bytes) { progressCallback(pMsg); }
+            }
         }
     }
 }

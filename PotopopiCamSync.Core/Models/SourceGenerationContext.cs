@@ -22,6 +22,8 @@ namespace PotopopiCamSync.Models
     [JsonSerializable(typeof(List<FlaggedFileModel>))]
     [JsonSerializable(typeof(List<ImmichAccountModel>))]
     [JsonSerializable(typeof(List<DeviceSignatureModel>))]
+    [JsonSerializable(typeof(List<SyncFileModel>))]
+    [JsonSerializable(typeof(ImmichUserMeResponse))]
     [JsonSerializable(typeof(Dictionary<string, HashSet<string>>))]
     [JsonSerializable(typeof(HashSet<string>))]
     public partial class SourceGenerationContext : JsonSerializerContext

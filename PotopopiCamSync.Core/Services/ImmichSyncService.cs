@@ -64,25 +64,32 @@ namespace PotopopiCamSync.Services
 
         public async Task<bool> PingAsync(CancellationToken cancellationToken = default)
         {
+            var user = await GetCurrentUserAsync(cancellationToken);
+            return user != null;
+        }
+
+        public async Task<ImmichUserMeResponse?> GetCurrentUserAsync(CancellationToken cancellationToken = default)
+        {
             try
             {
-                // Using /users/me for ping because it validates both connectivity and API Key
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"{_immichUrl}/users/me");
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{_immichUrl}/user/me");
                 request.Headers.Add("x-api-key", _apiKey);
                 var response = await _httpClient.SendAsync(request, cancellationToken);
                 
-                if (!response.IsSuccessStatusCode)
+                if (response.IsSuccessStatusCode)
                 {
-                    string error = await response.Content.ReadAsStringAsync(cancellationToken);
-                    _logger.LogWarning("Immich Ping failed: {Status} - {Error}", response.StatusCode, error);
+                    var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                    return JsonSerializer.Deserialize(body, SourceGenerationContext.Default.ImmichUserMeResponse);
                 }
                 
-                return response.IsSuccessStatusCode;
+                string error = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning("Immich GetCurrentUser failed: {Status} - {Error}", response.StatusCode, error);
+                return null;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning("Immich Ping error: {Message}", ex.Message);
-                return false;
+                _logger.LogWarning("Immich GetCurrentUser error: {Message}", ex.Message);
+                return null;
             }
         }
 

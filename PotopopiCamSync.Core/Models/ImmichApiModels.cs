@@ -28,4 +28,13 @@ namespace PotopopiCamSync.Models
         [JsonPropertyName("albumName")]
         public string AlbumName { get; set; } = string.Empty;
     }
+    
+    public class ImmichUserMeResponse
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+        
+        [JsonPropertyName("email")]
+        public string Email { get; set; } = string.Empty;
+    }
 }
